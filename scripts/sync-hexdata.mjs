@@ -33,12 +33,22 @@ const [meta, heroes, remoteAugments, poolIndex] = await Promise.all([
   fetchJson("/data/hero-augment-items/index.json"),
 ]);
 
-const remoteByName = new Map(remoteAugments.map((augment) => [augment.name, augment]));
-const missingNames = localAugmentNames.filter((name) => !remoteByName.has(name));
-if (missingNames.length) throw new Error(`Hexdata 缺少本地强化：${missingNames.join("、")}`);
-
-const localNameById = new Map(localAugmentNames.map((name) => [String(remoteByName.get(name).id), name]));
+const remoteNameById = new Map(remoteAugments.map((augment) => [String(augment.id), augment.name]));
 const shards = await mapLimit(poolIndex.heroIds, 12, async (heroId) => fetchJson(`/data/hero-augment-items/${heroId}.json`));
+
+const classifyTags = (augment) => {
+  const text = `${augment.name}${augment.description}`;
+  const rules = [
+    ["暴击", /暴击/], ["攻速", /攻速|攻击速度/], ["普攻", /普攻|攻击特效|每次攻击|攻击会/],
+    ["法强", /法术强度|法强|法术伤害/], ["技能", /技能|终极技能|基础技能/], ["急速", /急速|冷却/],
+    ["坦克", /护甲|魔抗|减伤|格挡|防御/], ["续航", /治疗|回复|生命偷取|吸血|护盾/],
+    ["近战", /近战|贴身|冲向/], ["射程", /射程|远距离/], ["机动", /移速|移动速度|冲刺|位移|闪现/],
+    ["控制", /控制|眩晕|定身|减速|击飞|沉默|魅惑|恐惧/], ["爆发", /爆炸|额外伤害|斩杀|处决/],
+    ["持续伤害", /持续伤害|灼烧|每秒|伤害持续/],
+  ];
+  const tags = rules.filter(([, pattern]) => pattern.test(text)).map(([tag]) => tag);
+  return tags.length ? tags.slice(0, 4) : ["通用"];
+};
 
 const cnStatsByKey = Object.fromEntries(heroes
   .filter((hero) => hero.dataAvailability === "observed")
@@ -52,33 +62,34 @@ const cnStatsByKey = Object.fromEntries(heroes
     games: hero.games,
   }]));
 
-const augmentPoolByKey = {};
 const heroAugmentStatsByKey = {};
 for (const shard of shards) {
-  const pool = [];
   const stats = {};
   for (const entry of shard.augments) {
-    const name = localNameById.get(String(entry.augmentId));
+    const name = remoteNameById.get(String(entry.augmentId));
     if (!name) continue;
-    pool.push(name);
     stats[name] = {
       games: entry.games,
       winRate: entry.games ? Number(((entry.wins / entry.games) * 100).toFixed(2)) : null,
     };
   }
-  augmentPoolByKey[Number(shard.heroId)] = pool;
   heroAugmentStatsByKey[Number(shard.heroId)] = stats;
 }
 
-const augmentSourceByName = Object.fromEntries(localAugmentNames.map((name) => {
-  const remote = remoteByName.get(name);
-  return [name, {
-    id: String(remote.id),
-    icon: `${BASE_URL}${remote.iconUrl}`,
-    winRate: Number((remote.winRate * 100).toFixed(2)),
-    pickRate: Number((remote.pickRate * 100).toFixed(2)),
-    games: remote.games,
-  }];
+const tierLabel = { 1: "S+", 2: "S", 3: "A", 4: "B", 5: "B" };
+const sortedAugments = [...remoteAugments].sort((a, b) => b.globalHexScore - a.globalHexScore || b.games - a.games);
+const augmentCatalogSnapshot = sortedAugments.map((remote, index) => ({
+  id: String(remote.id),
+  name: remote.name,
+  rarity: remote.rarity,
+  tier: tierLabel[remote.tier] ?? "B",
+  tags: classifyTags(remote),
+  summary: remote.description,
+  rank: index + 1,
+  icon: `${BASE_URL}${remote.iconUrl}`,
+  winRate: Number((remote.winRate * 100).toFixed(2)),
+  pickRate: Number((remote.pickRate * 100).toFixed(2)),
+  games: remote.games,
 }));
 
 const generated = `// 此文件由 scripts/sync-hexdata.mjs 生成，请勿手改。\n` +
@@ -91,10 +102,9 @@ const generated = `// 此文件由 scripts/sync-hexdata.mjs 生成，请勿手�
     observedHeroCount: meta.observedHeroCount,
   }, null, 2)} as const;\n\n` +
   `export const cnStatsByKey = ${JSON.stringify(cnStatsByKey, null, 2)} as const;\n\n` +
-  `export const augmentPoolByKey = ${JSON.stringify(augmentPoolByKey, null, 2)} as const;\n\n` +
-  `export const heroAugmentStatsByKey = ${JSON.stringify(heroAugmentStatsByKey, null, 2)} as const;\n\n` +
-  `export const augmentSourceByName = ${JSON.stringify(augmentSourceByName, null, 2)} as const;\n`;
+  `export const heroAugmentStatsByKey = ${JSON.stringify(heroAugmentStatsByKey)} as const;\n\n` +
+  `export const augmentCatalogSnapshot = ${JSON.stringify(augmentCatalogSnapshot)} as const;\n`;
 
 await writeFile(OUTPUT_PATH, generated);
 console.log(`写入 ${OUTPUT_PATH.pathname}`);
-console.log(`国服英雄 ${Object.keys(cnStatsByKey).length}；英雄池 ${Object.keys(augmentPoolByKey).length}；强化 ${localAugmentNames.length}`);
+console.log(`国服英雄 ${Object.keys(cnStatsByKey).length}；英雄池 ${Object.keys(heroAugmentStatsByKey).length}；强化 ${augmentCatalogSnapshot.length}（本地人工覆盖 ${localAugmentNames.length}）`);

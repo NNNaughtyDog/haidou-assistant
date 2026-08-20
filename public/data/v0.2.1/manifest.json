@@ -19,7 +19,8 @@
   },
   "assets": {
     "championsAndItems": "Riot Data Dragon",
-    "augments": "Hexdata / CommunityDragon"
+    "augments": "Hexdata / CommunityDragon",
+    "augmentCatalogCount": 208
   },
   "policies": {
     "heroPoolFilter": "observed-current-snapshot-only",

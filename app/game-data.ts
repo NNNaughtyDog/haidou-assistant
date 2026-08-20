@@ -1,4 +1,4 @@
-import { augmentPoolByKey, augmentSourceByName, cnStatsByKey, heroAugmentStatsByKey, hexdataSnapshot } from "./hexdata-snapshot";
+import { augmentCatalogSnapshot, cnStatsByKey, heroAugmentStatsByKey, hexdataSnapshot } from "./hexdata-snapshot";
 
 export type Tier = "T1" | "T2" | "T3" | "T4" | "T5";
 export type Rarity = "白银" | "黄金" | "棱彩";
@@ -6,15 +6,14 @@ export type Strategy = "稳健" | "高上限" | "娱乐";
 export type Region = "cn" | "global";
 export type HeroStats = { tier: Tier; rank: number | null; winRate: number; pickRate: number | null; trend: number | null; games?: number };
 export type Champion = { key: number; riotId: string; name: string; title: string; image: string; tags: string[]; cn: HeroStats | null; global: HeroStats | null; augments: string[]; augmentPool: string[]; items: string[] };
-export type Augment = { name: string; rarity: Rarity; tier: "S+" | "S" | "A" | "B"; tags: string[]; summary: string; rank: number; icon: string | null; iconSource: "client-extracted"; winRate: number; pickRate: number; games: number };
+export type Augment = { id: string; name: string; rarity: Rarity; tier: "S+" | "S" | "A" | "B"; tags: string[]; summary: string; rank: number; icon: string | null; iconSource: "client-extracted"; winRate: number; pickRate: number; games: number };
 export type HeroAugmentStat = { games: number; winRate: number | null };
 type ChampionCatalogEntry = Omit<Champion, "augmentPool">;
-type LocalAugment = Omit<Augment, "iconSource" | "winRate" | "pickRate" | "games">;
+type LocalAugment = Omit<Augment, "id" | "iconSource" | "winRate" | "pickRate" | "games">;
 export type Item = { id: string; name: string; tags: string[] };
 
 const DDRAGON_VERSION = "16.16.1";
 const DDRAGON_CDN = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
-const CDRAGON_CDN = "https://raw.communitydragon.org/16.16/game/assets/ux/cherry/augments/icons";
 
 const championCatalog = [
   {
@@ -3810,7 +3809,7 @@ const championCatalog = [
 export const champions: Champion[] = championCatalog.map((champion) => ({
   ...champion,
   cn: (cnStatsByKey as unknown as Record<number, HeroStats>)[champion.key] ?? null,
-  augmentPool: [...((augmentPoolByKey as unknown as Record<number, readonly string[]>)[champion.key] ?? [])],
+  augmentPool: Object.keys((heroAugmentStatsByKey as unknown as Record<number, Record<string, HeroAugmentStat>>)[champion.key] ?? {}),
 }));
 export const championPortrait = (champion: Champion) => `${DDRAGON_CDN}/img/champion/${champion.image}`;
 export const championSplash = (champion: Champion) => `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champion.riotId}_0.jpg`;
@@ -4214,15 +4213,22 @@ const augmentCatalog = [
     "icon": "spintowin_large.png"
   }
 ] as LocalAugment[];
-export const augments: Augment[] = augmentCatalog.map((augment) => {
-  const source = (augmentSourceByName as unknown as Record<string, { icon: string; winRate: number; pickRate: number; games: number }>)[augment.name];
+const manualAugmentByName = new Map(augmentCatalog.map((augment) => [augment.name, augment]));
+export const augments: Augment[] = augmentCatalogSnapshot.map((source) => {
+  const manual = manualAugmentByName.get(source.name);
   return {
-    ...augment,
-    icon: source?.icon ?? (augment.icon ? `${CDRAGON_CDN}/${augment.icon}` : null),
+    id: source.id,
+    name: source.name,
+    rarity: source.rarity as Rarity,
+    tier: (manual?.tier ?? source.tier) as Augment["tier"],
+    tags: manual?.tags ?? [...source.tags],
+    summary: manual?.summary ?? source.summary,
+    rank: source.rank,
+    icon: source.icon,
     iconSource: "client-extracted",
-    winRate: source?.winRate ?? 0,
-    pickRate: source?.pickRate ?? 0,
-    games: source?.games ?? 0,
+    winRate: source.winRate,
+    pickRate: source.pickRate,
+    games: source.games,
   };
 });
 export const items = [
