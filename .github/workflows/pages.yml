@@ -19,19 +19,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-        working-directory: github-pages
-      - run: npm run build
-        working-directory: github-pages
+      - name: Promote tested static bundle
+        shell: bash
+        run: |
+          install -d /tmp/haidou-pages
+          cp -R docs/preview/v0.2.1/. /tmp/haidou-pages/
+          sed -i 's#/haidou-assistant/docs/preview/v0.2.1/#/haidou-assistant/#g' /tmp/haidou-pages/index.html
+          test -f /tmp/haidou-pages/assets/index-D9kNGRjE.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: github-pages/dist
+          path: /tmp/haidou-pages
 
   deploy:
     environment:
