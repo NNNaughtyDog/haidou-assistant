@@ -63,6 +63,8 @@ certbot --nginx \
   --agree-tos \
   --register-unsafely-without-email \
   --redirect \
+  --expand \
+  -d hex.aicollie.cn \
   -d aicollie.cn \
   -d www.aicollie.cn
 

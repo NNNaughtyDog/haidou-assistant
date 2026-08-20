@@ -2,7 +2,7 @@ name: Deploy Tencent Lighthouse
 
 on:
   push:
-    branches: [main]
+    branches: [main, ops/hex-domain]
   workflow_dispatch:
 
 permissions:
@@ -40,6 +40,19 @@ jobs:
           sed -i 's#index-D9kNGRjE.js#index-D9kNGRjE-80233d74.js#g' /tmp/haidou-dist/index.html
           test -f /tmp/haidou-dist/assets/index-D9kNGRjE-80233d74.js
 
+      - name: Verify production DNS
+        shell: bash
+        run: |
+          for attempt in $(seq 1 40); do
+            resolved="$(getent ahostsv4 hex.aicollie.cn | awk '{print $1}' | sort -u || true)"
+            printf 'DNS attempt %s/40: %s\n' "$attempt" "${resolved:-not resolved}"
+            if printf '%s\n' "$resolved" | grep -Fx "$DEPLOY_HOST"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+
       - name: Prepare SSH
         shell: bash
         env:
@@ -72,6 +85,4 @@ jobs:
         shell: bash
         run: |
           curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
-            https://aicollie.cn/ > /dev/null
-          curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
-            https://www.aicollie.cn/ > /dev/null
+            https://hex.aicollie.cn/ | grep -F '海斗助手' > /dev/null
