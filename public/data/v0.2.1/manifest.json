@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "productVersion": "0.2.1",
+  "riotPatch": "16.16.1",
+  "displayPatch": "16.16",
+  "lastSuccessfulUpdate": "2026-08-19T07:52:25.388Z",
+  "championCatalog": 173,
+  "statistics": {
+    "cn": {
+      "coveredChampions": 172,
+      "source": "Hexdata",
+      "updatedAt": "2026-08-19"
+    },
+    "global": {
+      "coveredChampions": 171,
+      "source": "ARAM Mayhem",
+      "updatedAt": "2026-08-13"
+    }
+  },
+  "assets": {
+    "championsAndItems": "Riot Data Dragon",
+    "augments": "Hexdata / CommunityDragon",
+    "augmentCatalogCount": 208
+  },
+  "policies": {
+    "heroPoolFilter": "observed-current-snapshot-only",
+    "augmentWinRateDisplayed": true,
+    "missingValues": "null",
+    "failureFallback": "last-reliable-snapshot"
+  }
+}

@@ -1,0 +1,76 @@
+name: Deploy Tencent Lighthouse
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tencent-lighthouse-production
+  cancel-in-progress: true
+
+env:
+  DEPLOY_HOST: 43.133.254.212
+  DEPLOY_USER: root
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: github-pages
+
+      - name: Build root-path static site
+        run: npm run build
+        working-directory: github-pages
+        env:
+          HAIDOU_BASE: /
+
+      - name: Prepare SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SEOUL_SSH_KEY }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/haidou_deploy_key"
+          chmod 600 "$HOME/.ssh/haidou_deploy_key"
+          ssh-keyscan -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+
+      - name: Package and upload release
+        shell: bash
+        run: |
+          tar -C github-pages/dist -czf "/tmp/haidou-${GITHUB_SHA}.tar.gz" .
+          scp -i "$HOME/.ssh/haidou_deploy_key" \
+            "/tmp/haidou-${GITHUB_SHA}.tar.gz" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${GITHUB_SHA}.tar.gz"
+          scp -i "$HOME/.ssh/haidou_deploy_key" \
+            deploy/nginx/haidou-assistant.conf \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-assistant.conf"
+
+      - name: Activate release and configure HTTPS
+        shell: bash
+        run: |
+          ssh -i "$HOME/.ssh/haidou_deploy_key" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "RELEASE_SHA='${GITHUB_SHA}' bash -s" < deploy/tencent-lighthouse.sh
+
+      - name: Verify production
+        shell: bash
+        run: |
+          curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
+            https://aicollie.cn/ > /dev/null
+          curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
+            https://www.aicollie.cn/ > /dev/null
