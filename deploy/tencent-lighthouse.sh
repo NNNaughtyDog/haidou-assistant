@@ -24,9 +24,27 @@ install_packages() {
   fi
 }
 
+install_certbot_nginx_plugin() {
+  if certbot plugins 2>/dev/null | grep -qE '^[[:space:]]*\* nginx'; then
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y python3-certbot-nginx
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y python3-certbot-nginx || dnf install -y python2-certbot-nginx
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y python2-certbot-nginx || yum install -y python-certbot-nginx
+  fi
+
+  certbot plugins | grep -qE '^[[:space:]]*\* nginx'
+}
+
 if ! command -v nginx >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
   install_packages
 fi
+
+install_certbot_nginx_plugin
 
 test -f "$archive"
 test -f "$nginx_conf_source"
@@ -49,6 +67,8 @@ certbot --nginx \
   -d www.aicollie.cn
 
 systemctl enable --now certbot.timer 2>/dev/null || true
+printf '%s\n' '17 3 * * * root certbot renew --quiet --deploy-hook "systemctl reload nginx"' > /etc/cron.d/haidou-certbot-renew
+chmod 644 /etc/cron.d/haidou-certbot-renew
 nginx -t
 systemctl reload nginx
 
