@@ -43,7 +43,15 @@ jobs:
       - name: Verify production DNS
         shell: bash
         run: |
-          getent ahostsv4 hex.aicollie.cn | awk '{print $1}' | sort -u | grep -Fx "$DEPLOY_HOST"
+          for attempt in $(seq 1 40); do
+            resolved="$(getent ahostsv4 hex.aicollie.cn | awk '{print $1}' | sort -u || true)"
+            printf 'DNS attempt %s/40: %s\n' "$attempt" "${resolved:-not resolved}"
+            if printf '%s\n' "$resolved" | grep -Fx "$DEPLOY_HOST"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
 
       - name: Prepare SSH
         shell: bash
