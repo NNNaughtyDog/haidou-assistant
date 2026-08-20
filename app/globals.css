@@ -14,9 +14,12 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; background: var(--bg); color-scheme: dark; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { width: 100%; min-width: 320px; max-width: 100%; overflow-x: hidden; background: var(--bg); color-scheme: dark; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   margin: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   min-height: 100vh;
   background:
     radial-gradient(circle at 14% -10%, rgba(103, 66, 186, 0.26), transparent 34rem),
@@ -31,7 +34,7 @@ button, input { font: inherit; }
 button { color: inherit; -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 img { display: block; max-width: 100%; }
-.app-shell { min-height: 100vh; padding-bottom: calc(78px + var(--safe-bottom)); }
+.app-shell { width: 100%; max-width: 100vw; min-height: 100vh; overflow-x: clip; padding-bottom: calc(78px + var(--safe-bottom)); }
 .content-wrap, .topbar { width: min(100%, 680px); margin: 0 auto; }
 .content-wrap { padding: 8px 14px 32px; }
 .topbar {
@@ -290,9 +293,11 @@ img { display: block; max-width: 100%; }
 .hero-splash.asset-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
 .champion-portrait.asset-placeholder { display: grid; }
 
-.candidate-list, .recommend-list { display: grid; gap: 8px; }
+.candidate-list, .recommend-list { width: 100%; min-width: 0; display: grid; gap: 8px; }
 .candidate-row, .recommend-row {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 78px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -306,7 +311,7 @@ img { display: block; max-width: 100%; }
 .candidate-row.best { border-color: rgba(157, 120, 255, .72); background: linear-gradient(110deg, #2a2043, #12151f); }
 .candidate-rank { width: 37px; flex: 0 0 auto; color: var(--quiet); font-size: 13px; text-align: center; }
 .candidate-row.best .candidate-rank { color: #c4a9ff; font-weight: 800; }
-.candidate-copy, .recommend-copy { min-width: 0; flex: 1; }
+.candidate-copy, .recommend-copy { min-width: 0; max-width: 100%; overflow: hidden; flex: 1; }
 .candidate-copy strong, .candidate-copy small, .recommend-copy strong, .recommend-copy small, .recommend-copy i { display: block; }
 .candidate-copy strong { font-size: 15px; }
 .candidate-copy small { margin-top: 3px; color: var(--quiet); font-size: 12px; }
@@ -335,7 +340,7 @@ img { display: block; max-width: 100%; }
 .recommend-copy strong { font-size: 15px; }
 .recommend-copy strong em { margin-left: 7px; color: var(--gold); font-size: 12px; font-style: normal; font-weight: 600; }
 .recommend-copy small { margin-top: 4px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recommend-copy i { margin-top: 5px; color: #8f80af; font-size: 12px; font-style: normal; }
+.recommend-copy i { margin-top: 5px; overflow: hidden; color: #8f80af; font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .model-note { margin: 9px 3px 0; color: var(--quiet); font-size: 12px; line-height: 1.6; }
 
 .build-card {
@@ -554,6 +559,9 @@ img { display: block; max-width: 100%; }
   .recommend-copy small { max-width: 120px; }
   .build-icons { gap: 4px; }
   .hero-picker-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 559px) {
+  .content-wrap, .topbar, .bottom-nav { width: 100%; max-width: none; }
 }
 @media (min-width: 560px) {
   .content-wrap { padding-left: 22px; padding-right: 22px; }
