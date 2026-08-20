@@ -112,6 +112,7 @@ export default function Home() {
       if (state.region === "cn" || state.region === "global") setRegion(state.region);
       if (["稳健", "高上限", "娱乐"].includes(state.strategy)) setStrategy(state.strategy);
       if (Array.isArray(state.augments)) setSelectedNames(state.augments.filter((name: string) => targetHero.augmentPool.includes(name)).slice(0, 4));
+      setCandidateNames(getRecommendedAugments(targetHero).slice(0, 3));
       if (Array.isArray(state.items)) setEquipped(state.items.filter((name: string) => items.some((entry) => entry.name === name)).slice(0, 6));
       if (Array.isArray(state.favorites)) setFavorites(state.favorites);
     });
@@ -214,9 +215,9 @@ export default function Home() {
         onShare={shareCurrent}
         onSource={() => setSourceOpen(true)}
       />}
-      {tab === "英雄榜" && <Leaderboard region={region} setRegion={setRegion} onChoose={(champion) => { setHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
+      {tab === "英雄榜" && <Leaderboard region={region} setRegion={setRegion} onChoose={(champion) => { chooseHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
       {tab === "强化榜" && <AugmentBoard onChoose={(name) => { addAugment(name); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
-      {tab === "收藏" && <Favorites names={favorites} onChoose={(champion) => { setHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
+      {tab === "收藏" && <Favorites names={favorites} onChoose={(champion) => { chooseHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
     </div>
 
     <nav className="bottom-nav" aria-label="主导航">
