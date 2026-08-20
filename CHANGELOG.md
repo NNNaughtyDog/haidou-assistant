@@ -24,6 +24,7 @@
 
 - 新增腾讯云首尔轻量应用服务器自动部署流程：根路径静态构建、版本化发布、Nginx 托管及 `aicollie.cn` / `www.aicollie.cn` 自动 HTTPS。
 - SSH 私钥仅通过 GitHub Actions 加密 Secret 注入，不写入仓库或构建产物。
+- 生产入口调整为 `https://hex.aicollie.cn/`，原裸域名与 `www` 入口保留跳转以兼容旧链接。
 
 ### 数据说明
 
