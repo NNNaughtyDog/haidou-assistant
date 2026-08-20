@@ -28,7 +28,10 @@ jobs:
           install -d /tmp/haidou-pages
           tar -xzf /tmp/haidou-v0.2.1.tar.gz -C /tmp/haidou-pages
           sed -i 's#/haidou-assistant/docs/preview/v0.2.1/#/haidou-assistant/#g' /tmp/haidou-pages/index.html
-          test -f /tmp/haidou-pages/assets/index-D9kNGRjE.js
+          mv /tmp/haidou-pages/assets/index-D9kNGRjE.js \
+            /tmp/haidou-pages/assets/index-D9kNGRjE-80233d74.js
+          sed -i 's#index-D9kNGRjE.js#index-D9kNGRjE-80233d74.js#g' /tmp/haidou-pages/index.html
+          test -f /tmp/haidou-pages/assets/index-D9kNGRjE-80233d74.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
