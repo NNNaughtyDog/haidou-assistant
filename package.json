@@ -11,6 +11,8 @@
     "build": "bash scripts/build-verified.sh",
     "build:pages": "npm --prefix github-pages run build",
     "data:sync": "node scripts/sync-hexdata.mjs",
+    "data:validate": "node scripts/validate-hexdata.mjs",
+    "data:changelog": "node scripts/update-data-changelog.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",

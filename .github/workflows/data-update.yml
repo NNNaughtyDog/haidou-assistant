@@ -1,0 +1,139 @@
+name: Update Hexdata snapshot
+
+on:
+  schedule:
+    # UTC 22:00 = Asia/Shanghai 06:00 the following day.
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hexdata-snapshot-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+      pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: github-pages/package-lock.json
+
+      - name: Preserve baseline
+        run: cp app/hexdata-snapshot.ts /tmp/hexdata-baseline.ts
+
+      - name: Synchronize Hexdata
+        run: npm run data:sync
+
+      - name: Validate data and drift
+        run: npm run data:validate -- --baseline /tmp/hexdata-baseline.ts
+
+      - name: Detect changes
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- app/hexdata-snapshot.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "数据源没有变化，不创建 PR。" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update changelog
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run data:changelog
+
+      - name: Install preview dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm ci --prefix github-pages --no-audit --no-fund
+          ln -sfn github-pages/node_modules node_modules
+
+      - name: Build reviewed production bundle
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          HAIDOU_BASE: /
+        run: |
+          npm --prefix github-pages run build
+          test -s github-pages/dist/index.html
+          grep -Rqs '海斗助手' github-pages/dist/assets
+          tar -C github-pages/dist -czf /tmp/haidou-current.tar.gz .
+          rm -f deploy/artifacts/haidou-v0.2.1.tar.gz.b64.part-*
+          base64 -w 0 /tmp/haidou-current.tar.gz \
+            | split -b 700000 -a 2 - deploy/artifacts/haidou-v0.2.1.tar.gz.b64.part-
+          sha256sum /tmp/haidou-current.tar.gz | awk '{print $1}' \
+            > deploy/artifacts/haidou-current.sha256
+
+      - name: Build GitHub Pages preview
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          HAIDOU_BASE: /haidou-assistant/
+        run: |
+          npm --prefix github-pages run build
+          test -s github-pages/dist/index.html
+          grep -Rqs '海斗助手' github-pages/dist/assets
+
+      - name: Configure Pages
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload preview
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: github-pages/dist
+
+      - name: Create or update Draft PR
+        if: steps.changes.outputs.changed == 'true'
+        id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/hexdata-update
+          delete-branch: true
+          draft: always-true
+          commit-message: "data: refresh Hexdata snapshot"
+          title: "data: 自动更新 Hexdata 快照"
+          body: |
+            ## 自动数据更新
+
+            - 每天北京时间 06:00 从 Hexdata 同步
+            - 已校验英雄、英雄强化池、强化目录、百分比与样本数量
+            - 已与上一份快照比较，异常骤降会阻止 PR
+            - 已构建微信手机预览：https://nnnaughtydog.github.io/haidou-assistant/
+
+            ## 发布门槛
+
+            本 PR 不会自动合并或部署生产。手机测试后仍需明确回复“测试通过，可以合并”。
+          add-paths: |
+            app/hexdata-snapshot.ts
+            CHANGELOG.md
+            deploy/artifacts
+
+  preview:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
