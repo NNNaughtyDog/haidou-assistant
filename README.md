@@ -31,6 +31,12 @@
 npm run data:sync
 ```
 
+数据自动更新由 `.github/workflows/data-update.yml` 执行：每天北京时间 06:00
+同步 Hexdata，校验英雄、固定强化池、强化目录和样本量，并与上一份快照比较。
+有变化时自动更新本日志、构建 GitHub Pages 手机预览并创建 Draft PR；不会自动
+合并或覆盖生产环境。Draft PR 同时包含已校验的静态发布包，合并到 `main` 后，
+腾讯云流程只部署这份经过手机测试的同一构建。
+
 ## 本地开发
 
 ```bash
