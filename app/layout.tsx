@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     images: ["/og.png"],
   },
   robots: { index: true, follow: true },
+  other: { "codex-preview": "development" },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

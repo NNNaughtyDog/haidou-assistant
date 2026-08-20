@@ -6,6 +6,8 @@ import {
   championPortrait,
   championSplash,
   champions,
+  getHeroAugmentPool,
+  getHeroAugmentStat,
   getRecommendedAugments,
   getRecommendedItems,
   getStats,
@@ -24,6 +26,7 @@ type Tab = "本局" | "英雄榜" | "强化榜" | "收藏";
 type Picker = "hero" | "augment" | "candidate" | "item" | null;
 
 const tabs: Tab[] = ["本局", "英雄榜", "强化榜", "收藏"];
+const defaultHero = champions.find((entry) => entry.name === "薇恩") ?? champions[0];
 const navGlyph: Record<Tab, string> = { 本局: "✦", 英雄榜: "♜", 强化榜: "⬢", 收藏: "♡" };
 const strategyCopy: Record<Strategy, string> = {
   稳健: "优先容错与稳定成型",
@@ -63,19 +66,27 @@ function scoreAugment(champion: Champion, augment: Augment, selected: Augment[],
   const synergy = augment.tags.filter((tag) => selectedTags.includes(tag)).length;
   const tierBase = augment.tier === "S+" ? 11 : augment.tier === "S" ? 8 : augment.tier === "A" ? 5 : 2;
   let score = 50 + heroFit * 8 + synergy * 7 + tierBase + (preferred.includes(augment.name) ? 13 : 0);
+  const evidence = getHeroAugmentStat(champion, augment.name);
+  if (evidence?.winRate && champion.cn) {
+    const reliability = Math.min(1, Math.log10(Math.max(10, evidence.games)) / 5);
+    score += (evidence.winRate - champion.cn.winRate) * 2.4 * reliability;
+  }
   if (strategy === "高上限") score += synergy * 4 + (augment.rarity === "棱彩" ? 4 : 0);
   if (strategy === "稳健") score += augment.tags.some((tag) => ["续航", "射程", "坦克"].includes(tag)) ? 5 : 1;
   if (strategy === "娱乐") score += augment.tags.some((tag) => ["通用", "近战", "机动"].includes(tag)) ? 6 : 1;
   return Math.min(99, Math.round(score));
 }
 
+const formatGames = (games: number) => games >= 10000 ? `${(games / 10000).toFixed(games >= 100000 ? 1 : 2)}万` : games.toLocaleString("zh-CN");
+const getPairingRate = (champion: Champion, games: number) => champion.cn?.games ? Math.min(100, games / champion.cn.games * 100) : null;
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>("本局");
-  const [hero, setHero] = useState<Champion>(() => champions.find((entry) => entry.name === "薇恩") ?? champions[0]);
+  const [hero, setHero] = useState<Champion>(() => defaultHero);
   const [region, setRegion] = useState<Region>("cn");
   const [strategy, setStrategy] = useState<Strategy>("稳健");
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
-  const [candidateNames, setCandidateNames] = useState<string[]>(["暴击飞弹", "双刀流", "坚韧不屈"]);
+  const [candidateNames, setCandidateNames] = useState<string[]>(["双发快射", "双刀流", "连拨击锤"]);
   const [equipped, setEquipped] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>(["薇恩", "格雷福斯", "提莫"]);
   const [picker, setPicker] = useState<Picker>(null);
@@ -95,12 +106,15 @@ export default function Home() {
     } : saved ? JSON.parse(saved) : null;
     if (!state) return;
     const linkedHero = champions.find((entry) => entry.name === state.hero);
-    if (linkedHero) setHero(linkedHero);
-    if (state.region === "cn" || state.region === "global") setRegion(state.region);
-    if (["稳健", "高上限", "娱乐"].includes(state.strategy)) setStrategy(state.strategy);
-    if (Array.isArray(state.augments)) setSelectedNames(state.augments.filter((name: string) => augments.some((entry) => entry.name === name)).slice(0, 4));
-    if (Array.isArray(state.items)) setEquipped(state.items.filter((name: string) => items.some((entry) => entry.name === name)).slice(0, 6));
-    if (Array.isArray(state.favorites)) setFavorites(state.favorites);
+    const targetHero = linkedHero ?? defaultHero;
+    window.queueMicrotask(() => {
+      if (linkedHero) setHero(linkedHero);
+      if (state.region === "cn" || state.region === "global") setRegion(state.region);
+      if (["稳健", "高上限", "娱乐"].includes(state.strategy)) setStrategy(state.strategy);
+      if (Array.isArray(state.augments)) setSelectedNames(state.augments.filter((name: string) => targetHero.augmentPool.includes(name)).slice(0, 4));
+      if (Array.isArray(state.items)) setEquipped(state.items.filter((name: string) => items.some((entry) => entry.name === name)).slice(0, 6));
+      if (Array.isArray(state.favorites)) setFavorites(state.favorites);
+    });
   }, []);
 
   useEffect(() => {
@@ -109,13 +123,14 @@ export default function Home() {
 
   const stats = getStats(hero, region);
   const selectedAugments = selectedNames.map((name) => augments.find((entry) => entry.name === name)).filter(Boolean) as Augment[];
+  const heroPool = getHeroAugmentPool(hero);
   const scored = useMemo(() => augments
-    .filter((entry) => !selectedNames.includes(entry.name))
+    .filter((entry) => heroPool.includes(entry.name) && !selectedNames.includes(entry.name))
     .map((entry) => ({ ...entry, score: scoreAugment(hero, entry, selectedAugments, strategy) }))
-    .sort((a, b) => b.score - a.score || a.rank - b.rank), [hero, selectedNames, strategy]);
+    .sort((a, b) => b.score - a.score || a.rank - b.rank), [hero, heroPool, selectedNames, selectedAugments, strategy]);
   const candidates = candidateNames
     .map((name) => augments.find((entry) => entry.name === name))
-    .filter(Boolean)
+    .filter((entry): entry is Augment => Boolean(entry && heroPool.includes(entry.name)))
     .map((entry) => ({ ...entry!, score: scoreAugment(hero, entry!, selectedAugments, strategy) }))
     .sort((a, b) => b.score - a.score);
   const activeTags = [...hero.tags, ...selectedAugments.flatMap((entry) => entry.tags)];
@@ -126,9 +141,14 @@ export default function Home() {
   })).sort((a, b) => b.score - a.score);
 
   const closePicker = () => { setPicker(null); setQuery(""); };
-  const chooseHero = (champion: Champion) => { setHero(champion); closePicker(); };
+  const chooseHero = (champion: Champion) => {
+    setHero(champion);
+    setSelectedNames([]);
+    setCandidateNames(getRecommendedAugments(champion).slice(0, 3));
+    closePicker();
+  };
   const addAugment = (name: string) => {
-    if (!selectedNames.includes(name) && selectedNames.length < 4) setSelectedNames([...selectedNames, name]);
+    if (heroPool.includes(name) && !selectedNames.includes(name) && selectedNames.length < 4) setSelectedNames([...selectedNames, name]);
     closePicker();
   };
   const addItem = (name: string) => {
@@ -205,6 +225,7 @@ export default function Home() {
 
     {picker && <PickerSheet
       type={picker}
+      hero={hero}
       query={query}
       setQuery={setQuery}
       candidates={candidateNames}
@@ -262,13 +283,14 @@ function GameTab(props: {
           <button onClick={onShare} aria-label="分享本局">↗</button>
         </div>
       </div>
-      <div className="stats-head"><RegionSwitch value={region} onChange={setRegion} /><button className="source-link" onClick={onSource}>{region === "cn" ? "ARAMGG" : "ARAM Mayhem"} · 查看来源</button></div>
+      <div className="stats-head"><RegionSwitch value={region} onChange={setRegion} /><button className="source-link" onClick={onSource}>{region === "cn" ? "Hexdata" : "ARAM Mayhem"} · 查看来源</button></div>
       {stats ? <div className="metric-grid">
         <div><span>强度</span><strong className="tier-value">{stats.tier}</strong></div>
         <div><span>胜率</span><strong>{stats.winRate.toFixed(2)}%</strong></div>
         <div><span>选取率</span><strong>{stats.pickRate === null ? "未公开" : `${stats.pickRate.toFixed(2)}%`}</strong></div>
         <div><span>排名</span><strong>{stats.rank ? `#${stats.rank}` : "未公开"}</strong></div>
       </div> : <div className="no-data"><strong>该地区暂无可靠统计</strong><span>英雄素材与机制推荐仍可使用。</span>{region === "cn" && hero.global && <button onClick={() => setRegion("global")}>查看全球样本</button>}</div>}
+      {stats?.games && <p className="sample-line">国服冻结样本 {formatGames(stats.games)} 场 · 数据日期 {patchInfo.cnUpdatedAt}</p>}
     </section>
 
     <div className="strategy-card">
@@ -284,12 +306,12 @@ function GameTab(props: {
       </button> : <button key={index} className="empty-slot" onClick={() => onPick("augment")}><b>＋</b><span>添加强化</span></button>)}
     </div>
 
-    <SectionHeading index="02" title="本轮三选一" action={<button className="text-action" onClick={() => { setCandidateNames([]); onPick("candidate"); }}>录入候选</button>} />
+    <SectionHeading index="02" title="本轮三选一" meta={`英雄池 ${hero.augmentPool.length} 个`} action={<button className="text-action" onClick={() => { setCandidateNames([]); onPick("candidate"); }}>录入候选</button>} />
     {candidates.length === 3 ? <div className="candidate-list">
       {candidates.map((augment, index) => <button key={augment.name} className={`candidate-row ${index === 0 ? "best" : ""}`} onClick={() => onAddAugment(augment.name)}>
         <span className="candidate-rank">{index === 0 ? "首选" : `#${index + 1}`}</span>
         <AugmentIcon augment={augment} size="small" />
-        <span className="candidate-copy"><strong>{augment.name}</strong><small>{augment.tags.slice(0, 3).join(" · ")}</small></span>
+        <span className="candidate-copy"><strong>{augment.name}</strong><small>{(() => { const evidence = getHeroAugmentStat(hero, augment.name); const rate = evidence ? getPairingRate(hero, evidence.games) : null; return evidence ? `搭配胜率 ${evidence.winRate?.toFixed(2) ?? "—"}% · 搭配率 ${rate?.toFixed(1) ?? "—"}%` : augment.tags.slice(0, 3).join(" · "); })()}</small></span>
         <span className="match-score"><strong>{augment.score}</strong><small>匹配分</small></span>
       </button>)}
     </div> : <button className="candidate-empty" onClick={() => onPick("candidate")}><span>＋</span><strong>录入本轮三个强化</strong><small>帮你快速比较最值得选哪一个</small></button>}
@@ -299,11 +321,11 @@ function GameTab(props: {
       {scored.slice(0, 4).map((augment, index) => <button key={augment.name} className={`recommend-row rank-${index + 1}`} onClick={() => onAddAugment(augment.name)}>
         <span className="number">{index + 1}</span>
         <AugmentIcon augment={augment} />
-        <span className="recommend-copy"><strong>{augment.name}<em>{augment.rarity}</em></strong><small>{augment.summary}</small><i>{augment.tags.slice(0, 3).map((tag) => `#${tag}`).join("  ")}</i></span>
+        <span className="recommend-copy"><strong>{augment.name}<em>{augment.rarity}</em></strong><small>{augment.summary}</small><i>{(() => { const evidence = getHeroAugmentStat(hero, augment.name); return evidence ? `搭配胜率 ${evidence.winRate?.toFixed(2) ?? "—"}% · 样本 ${formatGames(evidence.games)}` : augment.tags.slice(0, 3).map((tag) => `#${tag}`).join("  "); })()}</i></span>
         <span className="match-score"><strong>{augment.score}</strong><small>匹配分</small></span>
       </button>)}
     </div>
-    <p className="model-note">匹配分是英雄机制、已有强化、路线偏好与公开梯度的 0–100 综合分，不是强化胜率。</p>
+    <p className="model-note">只在该英雄当前版本已观察到的固定池内推荐。匹配分会结合英雄机制、已有强化与国服搭配胜率；“搭配率”是该强化出现在英雄对局样本中的比例，不等于系统发牌概率。</p>
 
     <SectionHeading index="04" title="联动出装" action={<button className="text-action" onClick={() => onPick("item")}>编辑装备</button>} />
     <section className="build-card">
@@ -336,7 +358,7 @@ function Leaderboard({ region, setRegion, onChoose, onSource }: { region: Region
       <em className={`tier tier-${stats.tier}`}>{stats.tier}</em>
       <span className="leader-stat"><strong>{stats.winRate.toFixed(2)}%</strong><small>{stats.pickRate === null ? "选取率未公开" : `选取 ${stats.pickRate.toFixed(2)}%`}</small></span>
     </button>; })}</div>
-    <p className="data-footnote">{region === "cn" ? `已接入 ${patchInfo.cnStatCount} 位英雄的可核验国服样本；其余不显示推测数字。` : `已接入 ${patchInfo.globalStatCount} 位英雄的全球样本，更新时间 ${patchInfo.globalUpdatedAt}。`}</p>
+    <p className="data-footnote">{region === "cn" ? `已接入 ${patchInfo.cnStatCount} 位英雄的国服冻结样本；显示胜率、选取率和样本场次，日期 ${patchInfo.cnUpdatedAt}。` : `已接入 ${patchInfo.globalStatCount} 位英雄的全球样本，更新时间 ${patchInfo.globalUpdatedAt}。`}</p>
   </section>;
 }
 
@@ -345,13 +367,13 @@ function AugmentBoard({ onChoose, onSource }: { onChoose: (name: string) => void
   const [query, setQuery] = useState("");
   const list = augments.filter((entry) => (rarity === "全部" || entry.rarity === rarity) && entry.name.includes(query));
   return <section className="page-section">
-    <div className="page-heading"><span>机制梯度 · 不展示强化胜率</span><h1>强化图鉴</h1><p>官方素材存在时使用官方图标；缺失会明确标记。</p></div>
+    <div className="page-heading"><span>当前版本 · {patchInfo.augmentCount} 个已接入</span><h1>强化图鉴</h1><p>使用 16.16 客户端提取图标；版本外或无法核验的条目不展示。</p></div>
     <button className="inline-source" onClick={onSource}>查看强化来源与口径</button>
     <div className="filter-row">{["全部", "白银", "黄金", "棱彩"].map((entry) => <button key={entry} className={rarity === entry ? "active" : ""} onClick={() => setRarity(entry)}>{entry}</button>)}</div>
     <label className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索强化名称" /></label>
     <div className="augment-board">{list.map((augment) => <button key={augment.name} onClick={() => onChoose(augment.name)}>
       <AugmentIcon augment={augment} size="large" />
-      <span><strong>{augment.name}</strong><small>{augment.rarity} · {augment.tags.join(" / ")}</small><p>{augment.summary}</p></span>
+      <span><strong>{augment.name}</strong><small>{augment.rarity} · 胜率 {augment.winRate.toFixed(2)}% · 选取 {augment.pickRate.toFixed(2)}%</small><p>{augment.summary} · 样本 {formatGames(augment.games)}</p></span>
       <em>{augment.tier}</em>
     </button>)}</div>
   </section>;
@@ -366,18 +388,19 @@ function Favorites({ names, onChoose, onSource }: { names: string[]; onChoose: (
   </section>;
 }
 
-function PickerSheet({ type, query, setQuery, candidates, setCandidates, onClose, onHero, onAugment, onItem }: {
-  type: Exclude<Picker, null>; query: string; setQuery: (value: string) => void; candidates: string[]; setCandidates: (value: string[]) => void;
+function PickerSheet({ type, hero, query, setQuery, candidates, setCandidates, onClose, onHero, onAugment, onItem }: {
+  type: Exclude<Picker, null>; hero: Champion; query: string; setQuery: (value: string) => void; candidates: string[]; setCandidates: (value: string[]) => void;
   onClose: () => void; onHero: (champion: Champion) => void; onAugment: (name: string) => void; onItem: (name: string) => void;
 }) {
   const heroList = champions.filter((entry) => `${entry.name}${entry.title}`.includes(query));
-  const augmentList = augments.filter((entry) => entry.name.includes(query));
+  const pool = getHeroAugmentPool(hero);
+  const augmentList = augments.filter((entry) => pool.includes(entry.name) && entry.name.includes(query));
   const itemList = items.filter((entry) => entry.name.includes(query));
   const candidateMode = type === "candidate";
   const toggleCandidate = (name: string) => setCandidates(candidates.includes(name) ? candidates.filter((entry) => entry !== name) : [...candidates, name].slice(0, 3));
   return <div className="sheet-backdrop" onClick={onClose}><section className="bottom-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <div className="sheet-handle" />
-    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
+    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择 · ${hero.name}池内 ${pool.length} 个` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
     <label className="search-box sheet-search"><span>⌕</span><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入名称搜索" /></label>
     {type === "hero" && <div className="hero-picker-grid">{heroList.map((champion) => <button key={champion.key} onClick={() => onHero(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.global?.tier ?? "—"}</small></button>)}</div>}
     {(type === "augment" || candidateMode) && <div className="sheet-list">{augmentList.map((augment) => <button key={augment.name} className={candidates.includes(augment.name) && candidateMode ? "selected" : ""} onClick={() => candidateMode ? toggleCandidate(augment.name) : onAugment(augment.name)}><AugmentIcon augment={augment} size="small" /><span><strong>{augment.name}</strong><small>{augment.rarity} · {augment.tags.join(" / ")}</small></span><em>{candidates.includes(augment.name) && candidateMode ? "✓" : augment.tier}</em></button>)}</div>}
@@ -391,7 +414,6 @@ function SourceSheet({ onClose }: { onClose: () => void }) {
     <div className="sheet-handle" /><div className="sheet-title"><div><small>{patchInfo.productVersion}</small><h2>数据与素材说明</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
     <div className="source-summary"><div><span>游戏补丁</span><strong>{patchInfo.riotPatch}</strong></div><div><span>最后成功更新</span><strong>{patchInfo.updatedAt}</strong></div><div><span>英雄目录</span><strong>{patchInfo.officialChampionCount} 位</strong></div><div><span>统计覆盖</span><strong>国服 {patchInfo.cnStatCount} / 全球 {patchInfo.globalStatCount}</strong></div></div>
     <div className="source-list">{sources.map((source) => <a key={source.label} href={source.url} target="_blank" rel="noreferrer"><span>{source.label}</span><strong>{source.name}</strong><p>{source.scope}</p><em>访问来源 ↗</em></a>)}</div>
-    <p className="source-policy">强化只展示公开机制梯度与本站匹配分，不展示强化胜率。官方素材加载失败时显示“素材缺失”，不会使用生成图或近似图替代。</p>
+    <p className="source-policy">国服英雄数据与英雄×强化池来自 Hexdata 同一 16.16 冻结快照。候选区只展示该英雄样本中已确认出现的强化；搭配胜率与搭配率不等于发牌概率。图标优先使用当前版本客户端提取素材，无法核验的条目直接移除，不冒充官方。</p>
   </section></div>;
 }
-

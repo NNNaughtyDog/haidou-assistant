@@ -1,17 +1,22 @@
+import { augmentPoolByKey, augmentSourceByName, cnStatsByKey, heroAugmentStatsByKey, hexdataSnapshot } from "./hexdata-snapshot";
+
 export type Tier = "T1" | "T2" | "T3" | "T4" | "T5";
 export type Rarity = "白银" | "黄金" | "棱彩";
 export type Strategy = "稳健" | "高上限" | "娱乐";
 export type Region = "cn" | "global";
-export type HeroStats = { tier: Tier; rank: number | null; winRate: number; pickRate: number | null; trend: number | null };
-export type Champion = { key: number; riotId: string; name: string; title: string; image: string; tags: string[]; cn: HeroStats | null; global: HeroStats | null; augments: string[]; items: string[] };
-export type Augment = { name: string; rarity: Rarity; tier: "S+" | "S" | "A" | "B"; tags: string[]; summary: string; rank: number; icon: string | null };
+export type HeroStats = { tier: Tier; rank: number | null; winRate: number; pickRate: number | null; trend: number | null; games?: number };
+export type Champion = { key: number; riotId: string; name: string; title: string; image: string; tags: string[]; cn: HeroStats | null; global: HeroStats | null; augments: string[]; augmentPool: string[]; items: string[] };
+export type Augment = { name: string; rarity: Rarity; tier: "S+" | "S" | "A" | "B"; tags: string[]; summary: string; rank: number; icon: string | null; iconSource: "client-extracted"; winRate: number; pickRate: number; games: number };
+export type HeroAugmentStat = { games: number; winRate: number | null };
+type ChampionCatalogEntry = Omit<Champion, "augmentPool">;
+type LocalAugment = Omit<Augment, "iconSource" | "winRate" | "pickRate" | "games">;
 export type Item = { id: string; name: string; tags: string[] };
 
 const DDRAGON_VERSION = "16.16.1";
 const DDRAGON_CDN = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
 const CDRAGON_CDN = "https://raw.communitydragon.org/16.16/game/assets/ux/cherry/augments/icons";
 
-export const champions = [
+const championCatalog = [
   {
     "key": 67,
     "riotId": "Vayne",
@@ -3801,7 +3806,12 @@ export const champions = [
     "augments": [],
     "items": []
   }
-] as Champion[];
+] as ChampionCatalogEntry[];
+export const champions: Champion[] = championCatalog.map((champion) => ({
+  ...champion,
+  cn: (cnStatsByKey as unknown as Record<number, HeroStats>)[champion.key] ?? null,
+  augmentPool: [...((augmentPoolByKey as unknown as Record<number, readonly string[]>)[champion.key] ?? [])],
+}));
 export const championPortrait = (champion: Champion) => `${DDRAGON_CDN}/img/champion/${champion.image}`;
 export const championSplash = (champion: Champion) => `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champion.riotId}_0.jpg`;
 
@@ -4050,18 +4060,6 @@ const augmentCatalog = [
     "icon": "omnisoul_large.png"
   },
   {
-    "name": "坚韧不屈",
-    "rarity": "白银",
-    "tier": "A",
-    "tags": [
-      "坦克",
-      "续航"
-    ],
-    "summary": "低血量时显著提高恢复能力。",
-    "rank": 20,
-    "icon": null
-  },
-  {
     "name": "扇巴掌",
     "rarity": "黄金",
     "tier": "A",
@@ -4073,19 +4071,6 @@ const augmentCatalog = [
     "summary": "控制与近身缠斗时持续成长。",
     "rank": 21,
     "icon": "slaparound_large.png"
-  },
-  {
-    "name": "重量级打击",
-    "rarity": "棱彩",
-    "tier": "S",
-    "tags": [
-      "坦克",
-      "爆发",
-      "近战"
-    ],
-    "summary": "把防御属性转化为处决和爆发。",
-    "rank": 22,
-    "icon": null
   },
   {
     "name": "灵巧",
@@ -4228,8 +4213,18 @@ const augmentCatalog = [
     "rank": 33,
     "icon": "spintowin_large.png"
   }
-] as Augment[];
-export const augments = augmentCatalog.map((augment) => ({ ...augment, icon: augment.icon ? `${CDRAGON_CDN}/${augment.icon}` : null }));
+] as LocalAugment[];
+export const augments: Augment[] = augmentCatalog.map((augment) => {
+  const source = (augmentSourceByName as unknown as Record<string, { icon: string; winRate: number; pickRate: number; games: number }>)[augment.name];
+  return {
+    ...augment,
+    icon: source?.icon ?? (augment.icon ? `${CDRAGON_CDN}/${augment.icon}` : null),
+    iconSource: "client-extracted",
+    winRate: source?.winRate ?? 0,
+    pickRate: source?.pickRate ?? 0,
+    games: source?.games ?? 0,
+  };
+});
 export const items = [
   {
     "id": "223031",
@@ -4419,13 +4414,14 @@ export const items = [
 ] as Item[];
 export const itemIcon = (item: Item) => `${DDRAGON_CDN}/img/item/${item.id}.png`;
 export const getStats = (champion: Champion, region: Region) => region === "cn" ? champion.cn : champion.global;
+export const getHeroAugmentPool = (champion: Champion) => champion.augmentPool;
+export const getHeroAugmentStat = (champion: Champion, augmentName: string): HeroAugmentStat | null =>
+  (heroAugmentStatsByKey as unknown as Record<number, Record<string, HeroAugmentStat>>)[champion.key]?.[augmentName] ?? null;
 
 export const getRecommendedAugments = (champion: Champion) => {
-  if (champion.augments.length) return champion.augments;
-  if (champion.tags.includes("坦克")) return ["坦克引擎", "歌利亚巨人", "重量级打击手"];
-  if (champion.tags.includes("法强")) return ["尤里卡", "珠光护手", "大法师"];
-  if (champion.tags.includes("普攻")) return ["双刀流", "连拨击锤", "灵巧"];
-  return ["巨人杀手", "全能龙魂", "战争交响乐"];
+  const pool = getHeroAugmentPool(champion);
+  const preferred = champion.augments.filter((name) => pool.includes(name));
+  return [...preferred, ...pool.filter((name) => !preferred.includes(name))];
 };
 export const getRecommendedItems = (champion: Champion) => {
   if (champion.items.length) return champion.items;
@@ -4433,10 +4429,10 @@ export const getRecommendedItems = (champion: Champion) => {
   if (champion.tags.includes("法强")) return ["兰德里的折磨", "灭世者的死亡之帽", "中娅沙漏"];
   return ["收集者", "无尽之刃", "不朽盾弓"];
 };
-export const patchInfo = { productVersion: "v0.2.0", riotPatch: DDRAGON_VERSION, displayPatch: "26.16", updatedAt: "2026-08-20 12:00 UTC", globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length };
+export const patchInfo = { productVersion: "v0.2.1", riotPatch: DDRAGON_VERSION, displayPatch: hexdataSnapshot.patch, updatedAt: hexdataSnapshot.generatedAt, cnUpdatedAt: hexdataSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length };
 export const sources = [
   { label: "英雄与装备素材", name: "Riot Data Dragon", scope: `官方 ${DDRAGON_VERSION} 简体中文目录与版本化图片`, url: "https://developer.riotgames.com/docs/lol#data-dragon" },
   { label: "英雄强度（全球）", name: "ARAM Mayhem", scope: "26.16 全球样本；展示胜率与梯度", url: "https://arammayhem.com/zh-cn/tier-list/" },
-  { label: "英雄强度（国服）", name: "ARAMGG", scope: `26.16 可核验公开样本（${patchInfo.cnStatCount} 位）`, url: "https://aramgg.com/zh-CN" },
-  { label: "强化图标", name: "CommunityDragon", scope: "16.16 官方客户端资源提取；缺失时显示明确占位", url: "https://www.communitydragon.org/documentation/assets" },
+  { label: "英雄强度与英雄强化池（国服）", name: "Hexdata", scope: `${hexdataSnapshot.patch} 艾欧尼亚活跃玩家冻结样本；${patchInfo.cnStatCount} 位英雄，含胜率、选取率、场次与英雄×强化明细`, url: "https://hexdata.com.cn/methodology" },
+  { label: "强化目录与图标", name: "Hexdata / CommunityDragon", scope: `${hexdataSnapshot.patch} 客户端资源提取；当前目录 ${patchInfo.augmentCount} 个，错误或版本外条目不展示`, url: "https://hexdata.com.cn/augments" },
 ] as const;

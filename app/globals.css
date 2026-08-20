@@ -199,6 +199,7 @@ img { display: block; max-width: 100%; }
 .no-data strong { font-size: 15px; }
 .no-data span { margin-top: 2px; color: var(--muted); font-size: 13px; }
 .no-data button { min-height: 44px; margin-top: 8px; border: 0; border-radius: 9px; background: #5e3cb5; padding: 7px 12px; font-size: 13px; }
+.sample-line { position: relative; z-index: 2; margin: 10px 0 0; color: rgba(255,255,255,.78); font-size: 13px; line-height: 1.45; }
 
 .strategy-card {
   margin-top: 12px;
