@@ -20,8 +20,13 @@ jobs:
       - name: Promote tested static bundle
         shell: bash
         run: |
+          cat deploy/artifacts/haidou-v0.2.1.tar.gz.b64.part-* \
+            | base64 --decode > /tmp/haidou-v0.2.1.tar.gz
+          printf '%s  %s\n' \
+            '80233d748a2f005a614a3c5a07beb44ae716ddf6fa58bf1afd09126251cae702' \
+            '/tmp/haidou-v0.2.1.tar.gz' | sha256sum --check -
           install -d /tmp/haidou-pages
-          cp -R docs/preview/v0.2.1/. /tmp/haidou-pages/
+          tar -xzf /tmp/haidou-v0.2.1.tar.gz -C /tmp/haidou-pages
           sed -i 's#/haidou-assistant/docs/preview/v0.2.1/#/haidou-assistant/#g' /tmp/haidou-pages/index.html
           test -f /tmp/haidou-pages/assets/index-D9kNGRjE.js
       - uses: actions/configure-pages@v5
