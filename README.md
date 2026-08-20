@@ -46,6 +46,10 @@ npm run build:pages
 
 站点同时兼容 GitHub Pages 子路径 `/haidou-assistant/` 与后续 Nginx 根路径部署。
 
+生产域名：`https://aicollie.cn/`（腾讯云首尔轻量应用服务器）。部署由
+`.github/workflows/deploy-tencent.yml` 完成，SSH 私钥仅从 GitHub Actions Secret
+`SEOUL_SSH_KEY` 读取。
+
 ## 发布流程
 
 所有功能在 `feat/*` 分支开发，经 Draft PR 提供预览、数据差异与兼容性结果。只有在测试人明确回复“测试通过，可以合并”后才合并到 `main`；合并采用 squash，并同步更新 [CHANGELOG.md](./CHANGELOG.md)。
