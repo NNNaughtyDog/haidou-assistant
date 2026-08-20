@@ -24,20 +24,13 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install
-        working-directory: github-pages
-
-      - name: Build root-path static site
-        run: npm run build
-        working-directory: github-pages
-        env:
-          HAIDOU_BASE: /
+      - name: Promote tested static bundle
+        shell: bash
+        run: |
+          install -d /tmp/haidou-dist
+          cp -R docs/preview/v0.2.1/. /tmp/haidou-dist/
+          sed -i 's#/haidou-assistant/docs/preview/v0.2.1/#/#g' /tmp/haidou-dist/index.html
+          test -f /tmp/haidou-dist/assets/index-D9kNGRjE.js
 
       - name: Prepare SSH
         shell: bash
@@ -53,7 +46,7 @@ jobs:
       - name: Package and upload release
         shell: bash
         run: |
-          tar -C github-pages/dist -czf "/tmp/haidou-${GITHUB_SHA}.tar.gz" .
+          tar -C /tmp/haidou-dist -czf "/tmp/haidou-${GITHUB_SHA}.tar.gz" .
           scp -i "$HOME/.ssh/haidou_deploy_key" \
             "/tmp/haidou-${GITHUB_SHA}.tar.gz" \
             "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${GITHUB_SHA}.tar.gz"
