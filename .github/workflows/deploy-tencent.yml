@@ -35,7 +35,10 @@ jobs:
           install -d /tmp/haidou-dist
           tar -xzf /tmp/haidou-v0.2.1.tar.gz -C /tmp/haidou-dist
           sed -i 's#/haidou-assistant/docs/preview/v0.2.1/#/#g' /tmp/haidou-dist/index.html
-          test -f /tmp/haidou-dist/assets/index-D9kNGRjE.js
+          mv /tmp/haidou-dist/assets/index-D9kNGRjE.js \
+            /tmp/haidou-dist/assets/index-D9kNGRjE-80233d74.js
+          sed -i 's#index-D9kNGRjE.js#index-D9kNGRjE-80233d74.js#g' /tmp/haidou-dist/index.html
+          test -f /tmp/haidou-dist/assets/index-D9kNGRjE-80233d74.js
 
       - name: Prepare SSH
         shell: bash
