@@ -1,10 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 
-const SNAPSHOT_PATH = new URL("../app/hexdata-snapshot.ts", import.meta.url);
-const CHANGELOG_PATH = new URL("../CHANGELOG.md", import.meta.url);
-
-const source = await readFile(SNAPSHOT_PATH, "utf8");
-const readConst = (name) => {
+const readConst = (source, name) => {
   const marker = `export const ${name} = `;
   const start = source.indexOf(marker) + marker.length;
   const end = source.indexOf(" as const;", start);
@@ -12,32 +8,20 @@ const readConst = (name) => {
   return JSON.parse(source.slice(start, end));
 };
 
-const meta = readConst("hexdataSnapshot");
-const heroes = readConst("cnStatsByKey");
-const heroPools = readConst("heroAugmentStatsByKey");
-const augments = readConst("augmentCatalogSnapshot");
-const bullet = `- ${meta.date}：同步 Hexdata ${meta.patch} 快照（英雄 ${Object.keys(heroes).length}、英雄强化池 ${Object.keys(heroPools).length}、强化 ${augments.length}）。`;
-
-let changelog = await readFile(CHANGELOG_PATH, "utf8");
+const [hexSource, itemSource] = await Promise.all([
+  readFile(new URL("../app/hexdata-snapshot.ts", import.meta.url), "utf8"),
+  readFile(new URL("../app/item-snapshot.ts", import.meta.url), "utf8"),
+]);
+const meta = readConst(hexSource, "hexdataSnapshot");
+const items = readConst(itemSource, "itemCatalogSnapshot");
+const itemPools = readConst(itemSource, "heroItemPoolByKey");
+const bullet = `- ${meta.date}：同步 ${meta.patch} 数据快照，并刷新当前模式成装 ${items.length} 件、英雄装备池 ${Object.keys(itemPools).length} 位。`;
+const changelogPath = new URL("../CHANGELOG.md", import.meta.url);
+let changelog = await readFile(changelogPath, "utf8");
 if (!changelog.includes(bullet)) {
-  const marker = "本项目遵循语义化版本。\n";
-  const unreleased = "\n## [未发布]\n\n### 数据\n\n";
-  if (changelog.includes("## [未发布]")) {
-    const start = changelog.indexOf("## [未发布]");
-    const next = changelog.indexOf("\n## [", start + 1);
-    const end = next < 0 ? changelog.length : next;
-    let section = changelog.slice(start, end).trimEnd();
-    const dataHeading = "### 数据\n\n";
-    if (section.includes(dataHeading)) {
-      section = section.replace(dataHeading, `${dataHeading}${bullet}\n`);
-    } else {
-      section = `${section}\n\n${dataHeading}${bullet}`;
-    }
-    changelog = `${changelog.slice(0, start)}${section}\n${changelog.slice(end)}`;
-  } else {
-    changelog = changelog.replace(marker, `${marker}${unreleased}${bullet}\n`);
-  }
-  await writeFile(CHANGELOG_PATH, changelog);
+  const heading = "## [未发布]\n\n### 数据\n\n";
+  if (changelog.includes(heading)) changelog = changelog.replace(heading, `${heading}${bullet}\n`);
+  else changelog = changelog.replace("本项目遵循语义化版本。\n", `本项目遵循语义化版本。\n\n${heading}${bullet}\n`);
+  await writeFile(changelogPath, changelog);
 }
-
 console.log(bullet);

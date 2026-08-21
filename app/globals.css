@@ -359,6 +359,9 @@ img { display: block; max-width: 100%; }
 }
 .build-card > strong { display: block; margin-top: 14px; font-size: 15px; }
 .build-card > p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.item-pool-empty { min-height: 96px; display: grid; align-content: center; gap: 4px; }
+.item-pool-empty strong { font-size: 15px; }
+.item-pool-empty p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .owned-items { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .owned-items span { width: 100%; color: var(--quiet); font-size: 12px; }
 .owned-items button { min-height: 38px; border: 1px solid #514266; border-radius: 9px; background: #201a2b; padding: 6px 9px; color: #c9bfda; font-size: 12px; }
@@ -503,12 +506,34 @@ img { display: block; max-width: 100%; }
   text-align: left;
 }
 .sheet-list > button.selected { background: rgba(111, 76, 214, .16); }
+.sheet-list > button.hero-item { border-color: rgba(157, 120, 255, .32); }
 .sheet-list > button > span:nth-child(2) { flex: 1; min-width: 0; }
 .sheet-list strong, .sheet-list small { display: block; }
 .sheet-list strong { font-size: 15px; }
 .sheet-list small { margin-top: 3px; color: var(--quiet); font-size: 12px; }
 .sheet-list em { color: #baa0f2; font-style: normal; font-size: 14px; }
 .sheet-list .item-image { width: 48px; height: 48px; flex: 0 0 auto; }
+.item-filter-row {
+  display: flex;
+  gap: 7px;
+  margin: 0 -2px 10px;
+  padding: 0 2px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.item-filter-row::-webkit-scrollbar { display: none; }
+.item-filter-row button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #11151e;
+  color: var(--muted);
+  font-size: 14px;
+}
+.item-filter-row button.active { border-color: #8462d7; background: #5b3ca9; color: white; }
 .hero-picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; align-content: start; }
 .hero-picker-grid button { min-width: 0; min-height: 115px; border: 1px solid var(--line); border-radius: 14px; background: #151923; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .hero-picker-grid strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
