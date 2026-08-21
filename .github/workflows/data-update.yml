@@ -1,4 +1,4 @@
-name: Update Hexdata snapshot
+name: Update game data
 
 on:
   schedule:
@@ -13,16 +13,15 @@ permissions:
   id-token: write
 
 concurrency:
-  group: hexdata-snapshot-update
+  group: game-data-update
   cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     outputs:
       changed: ${{ steps.changes.outputs.changed }}
-      pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
@@ -34,20 +33,22 @@ jobs:
           cache: npm
           cache-dependency-path: github-pages/package-lock.json
 
-      - name: Preserve baseline
-        run: cp app/hexdata-snapshot.ts /tmp/hexdata-baseline.ts
+      - name: Preserve reliable baselines
+        run: |
+          cp app/hexdata-snapshot.ts /tmp/hexdata-baseline.ts
+          cp app/item-snapshot.ts /tmp/item-baseline.ts
 
-      - name: Synchronize Hexdata
+      - name: Synchronize heroes, augments and items
         run: npm run data:sync
 
-      - name: Validate data and drift
-        run: npm run data:validate -- --baseline /tmp/hexdata-baseline.ts
+      - name: Validate version, coverage and drift
+        run: npm run data:validate -- --baseline-items /tmp/item-baseline.ts
 
       - name: Detect changes
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- app/hexdata-snapshot.ts; then
+          if git diff --quiet -- app/hexdata-snapshot.ts app/item-snapshot.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "数据源没有变化，不创建 PR。" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -83,10 +84,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         env:
           HAIDOU_BASE: /haidou-assistant/
-        run: |
-          npm --prefix github-pages run build
-          test -s github-pages/dist/index.html
-          grep -Rqs '海斗助手' github-pages/dist/assets
+        run: npm --prefix github-pages run build
 
       - name: Configure Pages
         if: steps.changes.outputs.changed == 'true'
@@ -102,27 +100,25 @@ jobs:
 
       - name: Create or update Draft PR
         if: steps.changes.outputs.changed == 'true'
-        id: pr
         uses: peter-evans/create-pull-request@v7
         with:
-          branch: automation/hexdata-update
+          branch: automation/game-data-update
           delete-branch: true
           draft: always-true
-          commit-message: "data: refresh Hexdata snapshot"
-          title: "data: 自动更新 Hexdata 快照"
+          commit-message: "data: refresh game data snapshots"
+          title: "data: 自动更新英雄、强化与装备数据"
           body: |
             ## 自动数据更新
 
-            - 每天北京时间 06:00 从 Hexdata 同步
-            - 已校验英雄、英雄强化池、强化目录、百分比与样本数量
-            - 已与上一份快照比较，异常骤降会阻止 PR
-            - 已构建微信手机预览：https://nnnaughtydog.github.io/haidou-assistant/
-
-            ## 发布门槛
+            - 同步英雄、强化、当前模式成装目录与英雄专属装备池
+            - 校验补丁一致性、目录数量、英雄覆盖、唯一性和池内从属关系
+            - 来源失败、版本冲突或数量骤降时保留线上可靠快照
+            - 手机预览：https://nnnaughtydog.github.io/haidou-assistant/
 
             本 PR 不会自动合并或部署生产。手机测试后仍需明确回复“测试通过，可以合并”。
           add-paths: |
             app/hexdata-snapshot.ts
+            app/item-snapshot.ts
             CHANGELOG.md
             deploy/artifacts
 

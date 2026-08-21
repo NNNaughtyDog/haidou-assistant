@@ -1,4 +1,6 @@
-import { augmentCatalogSnapshot, cnStatsByKey, heroAugmentStatsByKey, hexdataSnapshot } from "./hexdata-snapshot";
+import { augmentCatalogSnapshot, heroAugmentStatsByKey, hexdataSnapshot } from "./hexdata-snapshot";
+import { aramggAugmentTierByName, aramggSnapshot, cnStatsByKey } from "./aramgg-snapshot";
+import { heroCoreItemsByKey, heroItemPoolByKey, itemCatalogSnapshot, itemSnapshot } from "./item-snapshot";
 
 export type Tier = "T1" | "T2" | "T3" | "T4" | "T5";
 export type Rarity = "白银" | "黄金" | "棱彩";
@@ -10,9 +12,10 @@ export type Augment = { id: string; name: string; rarity: Rarity; tier: "S+" | "
 export type HeroAugmentStat = { games: number; winRate: number | null };
 type ChampionCatalogEntry = Omit<Champion, "augmentPool">;
 type LocalAugment = Omit<Augment, "id" | "iconSource" | "winRate" | "pickRate" | "games">;
-export type Item = { id: string; name: string; tags: string[] };
+export type ItemCategory = "全部" | "攻击" | "法术" | "坦克" | "辅助" | "鞋子" | "模式专属";
+export type Item = { id: string; name: string; tags: string[]; categories: string[]; cost: number };
 
-const DDRAGON_VERSION = "16.16.1";
+const DDRAGON_VERSION = itemSnapshot.assetVersion;
 const DDRAGON_CDN = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
 
 const championCatalog = [
@@ -4220,7 +4223,7 @@ export const augments: Augment[] = augmentCatalogSnapshot.map((source) => {
     id: source.id,
     name: source.name,
     rarity: source.rarity as Rarity,
-    tier: (manual?.tier ?? source.tier) as Augment["tier"],
+    tier: ((aramggAugmentTierByName as Record<string, Augment["tier"]>)[source.name] ?? manual?.tier ?? source.tier) as Augment["tier"],
     tags: manual?.tags ?? [...source.tags],
     summary: manual?.summary ?? source.summary,
     rank: source.rank,
@@ -4231,7 +4234,7 @@ export const augments: Augment[] = augmentCatalogSnapshot.map((source) => {
     games: source.games,
   };
 });
-export const items = [
+export const legacyItems = [
   {
     "id": "223031",
     "name": "无尽之刃",
@@ -4417,10 +4420,20 @@ export const items = [
       "持续伤害"
     ]
   }
-] as Item[];
+] as Omit<Item, "categories" | "cost">[];
+export const items: Item[] = itemCatalogSnapshot.map((item) => ({
+  ...item,
+  tags: [...item.tags],
+  categories: [...item.categories],
+}));
 export const itemIcon = (item: Item) => `${DDRAGON_CDN}/img/item/${item.id}.png`;
 export const getStats = (champion: Champion, region: Region) => region === "cn" ? champion.cn : champion.global;
 export const getHeroAugmentPool = (champion: Champion) => champion.augmentPool;
+export const getHeroItemPool = (champion: Champion) => {
+  const poolIds = (heroItemPoolByKey as unknown as Record<number, readonly string[]>)[champion.key] ?? [];
+  const allowed = new Set(poolIds);
+  return items.filter((item) => allowed.has(item.id));
+};
 export const getHeroAugmentStat = (champion: Champion, augmentName: string): HeroAugmentStat | null =>
   (heroAugmentStatsByKey as unknown as Record<number, Record<string, HeroAugmentStat>>)[champion.key]?.[augmentName] ?? null;
 
@@ -4430,15 +4443,18 @@ export const getRecommendedAugments = (champion: Champion) => {
   return [...preferred, ...pool.filter((name) => !preferred.includes(name))];
 };
 export const getRecommendedItems = (champion: Champion) => {
-  if (champion.items.length) return champion.items;
-  if (champion.tags.includes("坦克")) return ["心之钢", "振奋盔甲", "兰顿之兆"];
-  if (champion.tags.includes("法强")) return ["兰德里的折磨", "灭世者的死亡之帽", "中娅沙漏"];
-  return ["收集者", "无尽之刃", "不朽盾弓"];
+  const coreIds = (heroCoreItemsByKey as unknown as Record<number, readonly string[]>)[champion.key] ?? [];
+  const allowed = new Set(getHeroItemPool(champion).map((item) => item.id));
+  return coreIds.filter((itemId) => allowed.has(itemId))
+    .map((itemId) => items.find((item) => item.id === itemId)?.name)
+    .filter((name): name is string => Boolean(name));
 };
-export const patchInfo = { productVersion: "v0.2.1", riotPatch: DDRAGON_VERSION, displayPatch: hexdataSnapshot.patch, updatedAt: hexdataSnapshot.generatedAt, cnUpdatedAt: hexdataSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length };
+export const patchInfo = { productVersion: "v0.3.0", riotPatch: DDRAGON_VERSION, displayPatch: aramggSnapshot.patch, updatedAt: aramggSnapshot.updatedAt, cnUpdatedAt: aramggSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length, itemCount: items.length, itemPoolCount: itemSnapshot.heroPoolCount, itemUpdatedAt: itemSnapshot.date };
 export const sources = [
   { label: "英雄与装备素材", name: "Riot Data Dragon", scope: `官方 ${DDRAGON_VERSION} 简体中文目录与版本化图片`, url: "https://developer.riotgames.com/docs/lol#data-dragon" },
   { label: "英雄强度（全球）", name: "ARAM Mayhem", scope: "26.16 全球样本；展示胜率与梯度", url: "https://arammayhem.com/zh-cn/tier-list/" },
-  { label: "英雄强度与英雄强化池（国服）", name: "Hexdata", scope: `${hexdataSnapshot.patch} 艾欧尼亚活跃玩家冻结样本；${patchInfo.cnStatCount} 位英雄，含胜率、选取率、场次与英雄×强化明细`, url: "https://hexdata.com.cn/methodology" },
-  { label: "强化目录与图标", name: "Hexdata / CommunityDragon", scope: `${hexdataSnapshot.patch} 客户端资源提取；当前目录 ${patchInfo.augmentCount} 个，错误或版本外条目不展示`, url: "https://hexdata.com.cn/augments" },
+  { label: "英雄强度（国服）", name: "ARAMGG", scope: `${aramggSnapshot.patch} 腾讯国服公开统计；${patchInfo.cnStatCount} 位英雄，展示排名、胜率与选取率，数据日期 ${aramggSnapshot.date}`, url: aramggSnapshot.source },
+  { label: "英雄强化池", name: "Hexdata", scope: `${hexdataSnapshot.patch} 固定池观察数据；只用于确认英雄可出现的强化，不展示强化胜率`, url: "https://hexdata.com.cn/methodology" },
+  { label: "成装目录与英雄装备池", name: "Hexdata / Riot Data Dragon", scope: `${itemSnapshot.patch} 当前模式 ${itemSnapshot.itemCount} 件可用成装；${itemSnapshot.heroPoolCount} 位英雄专属候选池，名称与图标来自 Data Dragon ${itemSnapshot.assetVersion}`, url: itemSnapshot.source },
+  { label: "强化梯度与图标", name: "ARAMGG / CommunityDragon", scope: `${aramggSnapshot.patch} 公开机制梯度；当前目录 ${patchInfo.augmentCount} 个，图标来自当前客户端资源`, url: "https://aramgg.com/zh-CN/augments" },
 ] as const;

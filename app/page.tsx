@@ -7,7 +7,7 @@ import {
   championSplash,
   champions,
   getHeroAugmentPool,
-  getHeroAugmentStat,
+  getHeroItemPool,
   getRecommendedAugments,
   getRecommendedItems,
   getStats,
@@ -18,6 +18,7 @@ import {
   type Augment,
   type Champion,
   type Item,
+  type ItemCategory,
   type Region,
   type Strategy,
 } from "./game-data";
@@ -66,11 +67,6 @@ function scoreAugment(champion: Champion, augment: Augment, selected: Augment[],
   const synergy = augment.tags.filter((tag) => selectedTags.includes(tag)).length;
   const tierBase = augment.tier === "S+" ? 11 : augment.tier === "S" ? 8 : augment.tier === "A" ? 5 : 2;
   let score = 50 + heroFit * 8 + synergy * 7 + tierBase + (preferred.includes(augment.name) ? 13 : 0);
-  const evidence = getHeroAugmentStat(champion, augment.name);
-  if (evidence?.winRate && champion.cn) {
-    const reliability = Math.min(1, Math.log10(Math.max(10, evidence.games)) / 5);
-    score += (evidence.winRate - champion.cn.winRate) * 2.4 * reliability;
-  }
   if (strategy === "高上限") score += synergy * 4 + (augment.rarity === "棱彩" ? 4 : 0);
   if (strategy === "稳健") score += augment.tags.some((tag) => ["续航", "射程", "坦克"].includes(tag)) ? 5 : 1;
   if (strategy === "娱乐") score += augment.tags.some((tag) => ["通用", "近战", "机动"].includes(tag)) ? 6 : 1;
@@ -78,8 +74,6 @@ function scoreAugment(champion: Champion, augment: Augment, selected: Augment[],
 }
 
 const formatGames = (games: number) => games >= 10000 ? `${(games / 10000).toFixed(games >= 100000 ? 1 : 2)}万` : games.toLocaleString("zh-CN");
-const getPairingRate = (champion: Champion, games: number) => champion.cn?.games ? Math.min(100, games / champion.cn.games * 100) : null;
-
 export default function Home() {
   const [tab, setTab] = useState<Tab>("本局");
   const [hero, setHero] = useState<Champion>(() => defaultHero);
@@ -136,7 +130,8 @@ export default function Home() {
     .sort((a, b) => b.score - a.score);
   const activeTags = [...hero.tags, ...selectedAugments.flatMap((entry) => entry.tags)];
   const preferredItems = getRecommendedItems(hero);
-  const itemScores = items.map((item) => ({
+  const heroItemPool = getHeroItemPool(hero);
+  const itemScores = heroItemPool.map((item) => ({
     ...item,
     score: 55 + item.tags.filter((tag) => activeTags.includes(tag)).length * 10 + (preferredItems.includes(item.name) ? 20 : 0),
   })).sort((a, b) => b.score - a.score);
@@ -312,7 +307,7 @@ function GameTab(props: {
       {candidates.map((augment, index) => <button key={augment.name} className={`candidate-row ${index === 0 ? "best" : ""}`} onClick={() => onAddAugment(augment.name)}>
         <span className="candidate-rank">{index === 0 ? "首选" : `#${index + 1}`}</span>
         <AugmentIcon augment={augment} size="small" />
-        <span className="candidate-copy"><strong>{augment.name}</strong><small>{(() => { const evidence = getHeroAugmentStat(hero, augment.name); const rate = evidence ? getPairingRate(hero, evidence.games) : null; return evidence ? `搭配胜率 ${evidence.winRate?.toFixed(2) ?? "—"}% · 搭配率 ${rate?.toFixed(1) ?? "—"}%` : augment.tags.slice(0, 3).join(" · "); })()}</small></span>
+        <span className="candidate-copy"><strong>{augment.name}</strong><small>{augment.tags.slice(0, 3).join(" · ")}</small></span>
         <span className="match-score"><strong>{augment.score}</strong><small>匹配分</small></span>
       </button>)}
     </div> : <button className="candidate-empty" onClick={() => onPick("candidate")}><span>＋</span><strong>录入本轮三个强化</strong><small>帮你快速比较最值得选哪一个</small></button>}
@@ -322,17 +317,19 @@ function GameTab(props: {
       {scored.slice(0, 4).map((augment, index) => <button key={augment.name} className={`recommend-row rank-${index + 1}`} onClick={() => onAddAugment(augment.name)}>
         <span className="number">{index + 1}</span>
         <AugmentIcon augment={augment} />
-        <span className="recommend-copy"><strong>{augment.name}<em>{augment.rarity}</em></strong><small>{augment.summary}</small><i>{(() => { const evidence = getHeroAugmentStat(hero, augment.name); return evidence ? `搭配胜率 ${evidence.winRate?.toFixed(2) ?? "—"}% · 样本 ${formatGames(evidence.games)}` : augment.tags.slice(0, 3).map((tag) => `#${tag}`).join("  "); })()}</i></span>
+        <span className="recommend-copy"><strong>{augment.name}<em>{augment.rarity}</em></strong><small>{augment.summary}</small><i>{augment.tags.slice(0, 3).map((tag) => `#${tag}`).join("  ")}</i></span>
         <span className="match-score"><strong>{augment.score}</strong><small>匹配分</small></span>
       </button>)}
     </div>
-    <p className="model-note">只在该英雄当前版本已观察到的固定池内推荐。匹配分会结合英雄机制、已有强化与国服搭配胜率；“搭配率”是该强化出现在英雄对局样本中的比例，不等于系统发牌概率。</p>
+    <p className="model-note">只在该英雄当前版本已观察到的固定池内推荐。0–100 匹配分综合英雄机制、已有强化、公开梯度与玩法偏好，不是胜率或系统发牌概率。</p>
 
-    <SectionHeading index="04" title="联动出装" action={<button className="text-action" onClick={() => onPick("item")}>编辑装备</button>} />
+    <SectionHeading index="04" title="联动出装" meta={`专属池 ${itemScores.length} 件`} action={<button className="text-action" onClick={() => onPick("item")}>全量装备库</button>} />
     <section className="build-card">
-      <div className="build-icons">{itemScores.slice(0, 6).map((item, index) => <button key={item.name} className={equipped.includes(item.name) ? "equipped" : ""} onClick={() => onAddItem(item.name)}><ItemImage item={item} /><small>{index + 1}</small></button>)}</div>
-      <strong>{selectedNames.length ? "已按强化联动重新排序" : "当前英雄的推荐核心路线"}</strong>
-      <p>{itemScores.slice(0, 3).map((item) => item.name).join(" → ")}。最后三件根据敌方阵容补生存、穿透或重伤。</p>
+      {itemScores.length ? <>
+        <div className="build-icons">{itemScores.slice(0, 6).map((item, index) => <button key={item.name} className={equipped.includes(item.name) ? "equipped" : ""} onClick={() => onAddItem(item.name)}><ItemImage item={item} /><small>{index + 1}</small></button>)}</div>
+        <strong>{selectedNames.length ? "已在英雄专属池内按强化联动排序" : "当前英雄的推荐核心路线"}</strong>
+        <p>{itemScores.slice(0, 3).map((item) => item.name).join(" → ")}。推荐只从该英雄当前版本的专属候选池产生，最后三件再按敌方阵容补生存、穿透或重伤。</p>
+      </> : <div className="item-pool-empty"><strong>当前版本暂无可靠英雄装备样本</strong><p>仍可打开全量装备库手动记录，但不会生成通用路线冒充专属推荐。</p></div>}
       {equipped.length > 0 && <div className="owned-items"><span>已出装备</span>{equipped.map((name) => <button key={name} onClick={() => setEquipped(equipped.filter((entry) => entry !== name))}>{name} ×</button>)}</div>}
     </section>
 
@@ -359,7 +356,7 @@ function Leaderboard({ region, setRegion, onChoose, onSource }: { region: Region
       <em className={`tier tier-${stats.tier}`}>{stats.tier}</em>
       <span className="leader-stat"><strong>{stats.winRate.toFixed(2)}%</strong><small>{stats.pickRate === null ? "选取率未公开" : `选取 ${stats.pickRate.toFixed(2)}%`}</small></span>
     </button>; })}</div>
-    <p className="data-footnote">{region === "cn" ? `已接入 ${patchInfo.cnStatCount} 位英雄的国服冻结样本；显示胜率、选取率和样本场次，日期 ${patchInfo.cnUpdatedAt}。` : `已接入 ${patchInfo.globalStatCount} 位英雄的全球样本，更新时间 ${patchInfo.globalUpdatedAt}。`}</p>
+    <p className="data-footnote">{region === "cn" ? `已接入 ARAMGG 的 ${patchInfo.cnStatCount} 位英雄腾讯国服公开统计；显示排名、胜率与选取率，数据日期 ${patchInfo.cnUpdatedAt}。` : `已接入 ${patchInfo.globalStatCount} 位英雄的全球样本，更新时间 ${patchInfo.globalUpdatedAt}。`}</p>
   </section>;
 }
 
@@ -374,7 +371,7 @@ function AugmentBoard({ onChoose, onSource }: { onChoose: (name: string) => void
     <label className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索强化名称" /></label>
     <div className="augment-board">{list.map((augment) => <button key={augment.name} onClick={() => onChoose(augment.name)}>
       <AugmentIcon augment={augment} size="large" />
-      <span><strong>{augment.name}</strong><small>{augment.rarity} · 胜率 {augment.winRate.toFixed(2)}% · 选取 {augment.pickRate.toFixed(2)}%</small><p>{augment.summary} · 样本 {formatGames(augment.games)}</p></span>
+      <span><strong>{augment.name}</strong><small>{augment.rarity} · 当前机制梯度</small><p>{augment.summary}</p></span>
       <em>{augment.tier}</em>
     </button>)}</div>
   </section>;
@@ -393,19 +390,26 @@ function PickerSheet({ type, hero, query, setQuery, candidates, setCandidates, o
   type: Exclude<Picker, null>; hero: Champion; query: string; setQuery: (value: string) => void; candidates: string[]; setCandidates: (value: string[]) => void;
   onClose: () => void; onHero: (champion: Champion) => void; onAugment: (name: string) => void; onItem: (name: string) => void;
 }) {
+  const [itemCategory, setItemCategory] = useState<ItemCategory>("全部");
   const heroList = champions.filter((entry) => `${entry.name}${entry.title}`.includes(query));
   const pool = getHeroAugmentPool(hero);
   const augmentList = augments.filter((entry) => pool.includes(entry.name) && entry.name.includes(query));
-  const itemList = items.filter((entry) => entry.name.includes(query));
+  const heroItems = getHeroItemPool(hero);
+  const heroItemIds = new Set(heroItems.map((entry) => entry.id));
+  const itemList = items
+    .filter((entry) => entry.name.includes(query) && (itemCategory === "全部" || entry.categories.includes(itemCategory)))
+    .sort((a, b) => Number(heroItemIds.has(b.id)) - Number(heroItemIds.has(a.id)));
+  const itemCategories: ItemCategory[] = ["全部", "攻击", "法术", "坦克", "辅助", "鞋子", "模式专属"];
   const candidateMode = type === "candidate";
   const toggleCandidate = (name: string) => setCandidates(candidates.includes(name) ? candidates.filter((entry) => entry !== name) : [...candidates, name].slice(0, 3));
   return <div className="sheet-backdrop" onClick={onClose}><section className="bottom-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <div className="sheet-handle" />
-    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择 · ${hero.name}池内 ${pool.length} 个` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
+    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择 · ${hero.name}池内 ${pool.length} 个` : type === "item" ? `当前模式全量 ${items.length} 件 · ${hero.name}专属池 ${heroItems.length} 件` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
     <label className="search-box sheet-search"><span>⌕</span><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入名称搜索" /></label>
+    {type === "item" && <div className="item-filter-row">{itemCategories.map((category) => <button key={category} className={itemCategory === category ? "active" : ""} onClick={() => setItemCategory(category)}>{category}</button>)}</div>}
     {type === "hero" && <div className="hero-picker-grid">{heroList.map((champion) => <button key={champion.key} onClick={() => onHero(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.global?.tier ?? "—"}</small></button>)}</div>}
     {(type === "augment" || candidateMode) && <div className="sheet-list">{augmentList.map((augment) => <button key={augment.name} className={candidates.includes(augment.name) && candidateMode ? "selected" : ""} onClick={() => candidateMode ? toggleCandidate(augment.name) : onAugment(augment.name)}><AugmentIcon augment={augment} size="small" /><span><strong>{augment.name}</strong><small>{augment.rarity} · {augment.tags.join(" / ")}</small></span><em>{candidates.includes(augment.name) && candidateMode ? "✓" : augment.tier}</em></button>)}</div>}
-    {type === "item" && <div className="sheet-list">{itemList.map((item) => <button key={item.id} onClick={() => onItem(item.name)}><ItemImage item={item} /><span><strong>{item.name}</strong><small>{item.tags.join(" / ")}</small></span></button>)}</div>}
+    {type === "item" && <div className="sheet-list">{itemList.map((item) => <button key={item.id} className={heroItemIds.has(item.id) ? "hero-item" : ""} onClick={() => onItem(item.name)}><ItemImage item={item} /><span><strong>{item.name}</strong><small>{item.tags.join(" / ")} · {item.cost.toLocaleString("zh-CN")} 金币</small></span>{heroItemIds.has(item.id) && <em>英雄候选</em>}</button>)}</div>}
     {candidateMode && <button className="sheet-primary" disabled={candidates.length !== 3} onClick={onClose}>完成并比较</button>}
   </section></div>;
 }
@@ -413,8 +417,8 @@ function PickerSheet({ type, hero, query, setQuery, candidates, setCandidates, o
 function SourceSheet({ onClose }: { onClose: () => void }) {
   return <div className="sheet-backdrop" onClick={onClose}><section className="bottom-sheet source-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <div className="sheet-handle" /><div className="sheet-title"><div><small>{patchInfo.productVersion}</small><h2>数据与素材说明</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
-    <div className="source-summary"><div><span>游戏补丁</span><strong>{patchInfo.riotPatch}</strong></div><div><span>最后成功更新</span><strong>{patchInfo.updatedAt}</strong></div><div><span>英雄目录</span><strong>{patchInfo.officialChampionCount} 位</strong></div><div><span>统计覆盖</span><strong>国服 {patchInfo.cnStatCount} / 全球 {patchInfo.globalStatCount}</strong></div></div>
+    <div className="source-summary"><div><span>游戏补丁</span><strong>{patchInfo.riotPatch}</strong></div><div><span>最后成功更新</span><strong>{patchInfo.updatedAt}</strong></div><div><span>英雄目录</span><strong>{patchInfo.officialChampionCount} 位</strong></div><div><span>统计覆盖</span><strong>国服 {patchInfo.cnStatCount} / 全球 {patchInfo.globalStatCount}</strong></div><div><span>当前模式成装</span><strong>{patchInfo.itemCount} 件</strong></div><div><span>英雄装备池</span><strong>{patchInfo.itemPoolCount} 位</strong></div></div>
     <div className="source-list">{sources.map((source) => <a key={source.label} href={source.url} target="_blank" rel="noreferrer"><span>{source.label}</span><strong>{source.name}</strong><p>{source.scope}</p><em>访问来源 ↗</em></a>)}</div>
-    <p className="source-policy">国服英雄数据与英雄×强化池来自 Hexdata 同一 16.16 冻结快照。候选区只展示该英雄样本中已确认出现的强化；搭配胜率与搭配率不等于发牌概率。图标优先使用当前版本客户端提取素材，无法核验的条目直接移除，不冒充官方。</p>
+    <p className="source-policy">国服英雄排名、胜率和选取率来自 ARAMGG 汇总的腾讯国服公开统计。强化与装备推荐均执行英雄专属候选池硬过滤；全量装备库只收录当前模式可用成装。遵守 Riot 政策，不展示强化或装备胜率，匹配分也不等于系统发牌概率。图标优先使用当前版本客户端提取素材，无法核验的条目直接移除。</p>
   </section></div>;
 }
