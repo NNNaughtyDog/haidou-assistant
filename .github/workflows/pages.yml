@@ -32,9 +32,6 @@ jobs:
           sed -i 's#="/#="/haidou-assistant/#g' /tmp/haidou-pages/index.html
           test -s /tmp/haidou-pages/index.html
           grep -Rqs '海斗助手' /tmp/haidou-pages/assets
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: /tmp/haidou-pages
