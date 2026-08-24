@@ -125,5 +125,6 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 body,
+                assignees: [context.repo.owner],
               });
             }
