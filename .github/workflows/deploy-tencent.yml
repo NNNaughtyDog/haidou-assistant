@@ -81,8 +81,17 @@ jobs:
       - name: Verify production
         shell: bash
         run: |
-          curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
-            https://hex.aicollie.cn/ | grep -F '海斗助手' > /dev/null
+          html="$(curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
+            https://hex.aicollie.cn/)"
+          printf '%s' "$html" | grep -F '海斗助手' > /dev/null
+          asset_path="$(printf '%s' "$html" | sed -n 's#.*src="\([^"]*\.js\)".*#\1#p' | head -n 1)"
+          test -n "$asset_path"
+          case "$asset_path" in
+            /assets/*) ;;
+            *) echo "生产首页引用了错误的资源路径：$asset_path" >&2; exit 1 ;;
+          esac
+          curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+            "https://hex.aicollie.cn${asset_path}" | grep -F '海斗助手' > /dev/null
 
   notify-failure:
     needs: deploy
