@@ -8,9 +8,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
-  pages: write
-  id-token: write
+  issues: write
 
 concurrency:
   group: game-data-update
@@ -20,11 +18,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    outputs:
-      changed: ${{ steps.changes.outputs.changed }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,22 +33,22 @@ jobs:
 
       - name: Preserve reliable baselines
         run: |
-          cp app/hexdata-snapshot.ts /tmp/hexdata-baseline.ts
+          cp app/aramgg-snapshot.ts /tmp/aramgg-baseline.ts
           cp app/item-snapshot.ts /tmp/item-baseline.ts
 
-      - name: Synchronize heroes, augments and items
+      - name: Synchronize all public data
         run: npm run data:sync
 
       - name: Validate version, coverage and drift
-        run: npm run data:validate -- --baseline-items /tmp/item-baseline.ts
+        run: npm run data:validate -- --baseline-aramgg /tmp/aramgg-baseline.ts --baseline-items /tmp/item-baseline.ts
 
       - name: Detect changes
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- app/hexdata-snapshot.ts app/item-snapshot.ts; then
+          if git diff --quiet -- app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "数据源没有变化，不创建 PR。" >> "$GITHUB_STEP_SUMMARY"
+            echo "数据源没有变化，无需发布。" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -59,13 +57,15 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: npm run data:changelog
 
-      - name: Install preview dependencies
+      - name: Install production dependencies
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          npm ci --prefix github-pages --no-audit --no-fund
-          ln -sfn github-pages/node_modules node_modules
+        run: npm ci --prefix github-pages --no-audit --no-fund
 
-      - name: Build reviewed production bundle
+      - name: Run data regression tests
+        if: steps.changes.outputs.changed == 'true'
+        run: node --test tests/item-data.test.mjs
+
+      - name: Build Tencent production bundle
         if: steps.changes.outputs.changed == 'true'
         env:
           HAIDOU_BASE: /
@@ -74,62 +74,56 @@ jobs:
           test -s github-pages/dist/index.html
           grep -Rqs '海斗助手' github-pages/dist/assets
           tar -C github-pages/dist -czf /tmp/haidou-current.tar.gz .
-          rm -f deploy/artifacts/haidou-v0.2.1.tar.gz.b64.part-*
+          rm -f deploy/artifacts/haidou-current.tar.gz.b64.part-*
           base64 -w 0 /tmp/haidou-current.tar.gz \
-            | split -b 700000 -a 2 - deploy/artifacts/haidou-v0.2.1.tar.gz.b64.part-
+            | split -b 700000 -a 2 - deploy/artifacts/haidou-current.tar.gz.b64.part-
           sha256sum /tmp/haidou-current.tar.gz | awk '{print $1}' \
             > deploy/artifacts/haidou-current.sha256
 
-      - name: Build GitHub Pages preview
+      - name: Commit and publish verified update
         if: steps.changes.outputs.changed == 'true'
-        env:
-          HAIDOU_BASE: /haidou-assistant/
-        run: npm --prefix github-pages run build
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts CHANGELOG.md deploy/artifacts
+          git commit -m "data: automatic game data refresh"
+          git push origin HEAD:main
 
-      - name: Configure Pages
-        if: steps.changes.outputs.changed == 'true'
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload preview
-        if: steps.changes.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: github-pages/dist
-
-      - name: Create or update Draft PR
-        if: steps.changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          branch: automation/game-data-update
-          delete-branch: true
-          draft: always-true
-          commit-message: "data: refresh game data snapshots"
-          title: "data: 自动更新英雄、强化与装备数据"
-          body: |
-            ## 自动数据更新
-
-            - 同步英雄、强化、当前模式成装目录与英雄专属装备池
-            - 校验补丁一致性、目录数量、英雄覆盖、唯一性和池内从属关系
-            - 来源失败、版本冲突或数量骤降时保留线上可靠快照
-            - 手机预览：https://nnnaughtydog.github.io/haidou-assistant/
-
-            本 PR 不会自动合并或部署生产。手机测试后仍需明确回复“测试通过，可以合并”。
-          add-paths: |
-            app/hexdata-snapshot.ts
-            app/item-snapshot.ts
-            CHANGELOG.md
-            deploy/artifacts
-
-  preview:
+  notify-failure:
     needs: update
-    if: needs.update.outputs.changed == 'true'
+    if: ${{ always() && needs.update.result == 'failure' }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      issues: write
+      contents: read
     steps:
-      - name: Deploy preview
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Create or update failure alert
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "🚨 海斗助手数据自动更新失败";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `数据抓取、校验、构建或自动提交失败。线上可靠版本未被替换。\n\n失败时间：${new Date().toISOString()}\n运行日志：${runUrl}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }

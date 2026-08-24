@@ -1,6 +1,6 @@
 {
   "name": "haidou-assistant",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -10,7 +10,9 @@
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
     "build": "bash scripts/build-verified.sh",
     "build:pages": "npm --prefix github-pages run build",
-    "data:sync": "node scripts/sync-hexdata.mjs",
+    "data:sync:aramgg": "node scripts/sync-aramgg.mjs",
+    "data:sync:hexdata": "node scripts/sync-hexdata.mjs",
+    "data:sync": "npm run data:sync:aramgg && npm run data:sync:hexdata",
     "data:validate": "node scripts/validate-data.mjs",
     "data:changelog": "node scripts/update-data-changelog.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
