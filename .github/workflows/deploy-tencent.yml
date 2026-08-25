@@ -40,7 +40,8 @@ jobs:
           npm --prefix github-pages run build
           npm --prefix github-pages run test:render
           test -s github-pages/dist/index.html
-          grep -Rqs '海斗助手' github-pages/dist/assets
+          grep -Rqs '海斗实验室' github-pages/dist/assets
+          grep -Rqs '构筑乱斗' github-pages/dist/assets
 
       - name: Verify production DNS
         shell: bash
@@ -88,7 +89,7 @@ jobs:
         run: |
           html="$(curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
             https://hex.aicollie.cn/)"
-          printf '%s' "$html" | grep -F '海斗助手' > /dev/null
+          printf '%s' "$html" | grep -F '海斗实验室' > /dev/null
           asset_path="$(printf '%s' "$html" | sed -n 's#.*src="\([^"]*\.js\)".*#\1#p' | head -n 1)"
           test -n "$asset_path"
           case "$asset_path" in
@@ -96,7 +97,7 @@ jobs:
             *) echo "生产首页引用了错误的资源路径：$asset_path" >&2; exit 1 ;;
           esac
           curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
-            "https://hex.aicollie.cn${asset_path}" | grep -F '海斗助手' > /dev/null
+            "https://hex.aicollie.cn${asset_path}" | grep -F '构筑乱斗' > /dev/null
 
   notify-failure:
     needs: deploy

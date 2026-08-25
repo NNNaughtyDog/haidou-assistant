@@ -22,13 +22,14 @@ import {
   type Region,
   type Strategy,
 } from "./game-data";
+import RogueliteGame from "./roguelite-game";
 
-type Tab = "本局" | "英雄榜" | "强化榜" | "收藏";
+type Tab = "玩一局" | "实战助手" | "图鉴" | "我的";
 type Picker = "hero" | "augment" | "candidate" | "item" | null;
 
-const tabs: Tab[] = ["本局", "英雄榜", "强化榜", "收藏"];
+const tabs: Tab[] = ["玩一局", "实战助手", "图鉴", "我的"];
 const defaultHero = champions.find((entry) => entry.name === "薇恩") ?? champions[0];
-const navGlyph: Record<Tab, string> = { 本局: "✦", 英雄榜: "♜", 强化榜: "⬢", 收藏: "♡" };
+const navGlyph: Record<Tab, string> = { 玩一局: "✦", 实战助手: "⌁", 图鉴: "⬢", 我的: "♡" };
 const strategyCopy: Record<Strategy, string> = {
   稳健: "优先容错与稳定成型",
   高上限: "接受风险，追求联动上限",
@@ -75,7 +76,7 @@ function scoreAugment(champion: Champion, augment: Augment, selected: Augment[],
 
 const formatGames = (games: number) => games >= 10000 ? `${(games / 10000).toFixed(games >= 100000 ? 1 : 2)}万` : games.toLocaleString("zh-CN");
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("本局");
+  const [tab, setTab] = useState<Tab>("玩一局");
   const [hero, setHero] = useState<Champion>(() => defaultHero);
   const [region, setRegion] = useState<Region>("cn");
   const [strategy, setStrategy] = useState<Strategy>("稳健");
@@ -115,6 +116,7 @@ export default function Home() {
     const linkedHero = champions.find((entry) => entry.name === state.hero);
     const targetHero = linkedHero ?? defaultHero;
     window.queueMicrotask(() => {
+      if (params.has("h")) setTab("实战助手");
       if (linkedHero) setHero(linkedHero);
       if (state.region === "cn" || state.region === "global") setRegion(state.region);
       if (["稳健", "高上限", "娱乐"].includes(state.strategy)) setStrategy(state.strategy);
@@ -193,9 +195,9 @@ export default function Home() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <button className="brand" onClick={() => setTab("本局")} aria-label="返回本局">
+      <button className="brand" onClick={() => setTab("玩一局")} aria-label="返回玩一局">
         <span className="brand-mark">海</span>
-        <span><strong>海斗助手</strong><small>海克斯大乱斗决策工具</small></span>
+        <span><strong>海斗实验室</strong><small>白天玩一局 · 晚上做助手</small></span>
       </button>
       <button className="patch-button" onClick={() => setSourceOpen(true)}>
         <span className="live-dot" />{patchInfo.displayPatch}<small>数据说明</small>
@@ -203,7 +205,8 @@ export default function Home() {
     </header>
 
     <div className="content-wrap">
-      {tab === "本局" && <GameTab
+      {tab === "玩一局" && <RogueliteGame onToast={showToast} />}
+      {tab === "实战助手" && <GameTab
         hero={hero}
         region={region}
         setRegion={setRegion}
@@ -227,9 +230,8 @@ export default function Home() {
         onShare={shareCurrent}
         onSource={() => setSourceOpen(true)}
       />}
-      {tab === "英雄榜" && <Leaderboard region={region} setRegion={setRegion} onChoose={(champion) => { chooseHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
-      {tab === "强化榜" && <AugmentBoard onChoose={(name) => { addAugment(name); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
-      {tab === "收藏" && <Favorites names={favorites} onChoose={(champion) => { chooseHero(champion); setTab("本局"); }} onSource={() => setSourceOpen(true)} />}
+      {tab === "图鉴" && <CodexBoard region={region} setRegion={setRegion} onHero={(champion) => { chooseHero(champion); setTab("实战助手"); }} onAugment={(name) => { addAugment(name); setTab("实战助手"); }} onSource={() => setSourceOpen(true)} />}
+      {tab === "我的" && <Favorites names={favorites} onChoose={(champion) => { chooseHero(champion); setTab("实战助手"); }} onSource={() => setSourceOpen(true)} />}
     </div>
 
     <nav className="bottom-nav" aria-label="主导航">
@@ -375,6 +377,17 @@ function Leaderboard({ region, setRegion, onChoose, onSource }: { region: Region
     </button>; })}</div>
     <p className="data-footnote">{region === "cn" ? `已接入 ARAMGG 的 ${patchInfo.cnStatCount} 位英雄腾讯国服公开统计；显示排名、胜率与选取率，数据日期 ${patchInfo.cnUpdatedAt}。` : `已接入 ${patchInfo.globalStatCount} 位英雄的全球样本，更新时间 ${patchInfo.globalUpdatedAt}。`}</p>
   </section>;
+}
+
+function CodexBoard({ region, setRegion, onHero, onAugment, onSource }: { region: Region; setRegion: (value: Region) => void; onHero: (champion: Champion) => void; onAugment: (name: string) => void; onSource: () => void }) {
+  const [view, setView] = useState<"英雄" | "强化">("英雄");
+  return <>
+    <div className="codex-switch" aria-label="图鉴分类">
+      <button className={view === "英雄" ? "active" : ""} onClick={() => setView("英雄")}>英雄榜</button>
+      <button className={view === "强化" ? "active" : ""} onClick={() => setView("强化")}>强化图鉴</button>
+    </div>
+    {view === "英雄" ? <Leaderboard region={region} setRegion={setRegion} onChoose={onHero} onSource={onSource} /> : <AugmentBoard onChoose={onAugment} onSource={onSource} />}
+  </>;
 }
 
 function AugmentBoard({ onChoose, onSource }: { onChoose: (name: string) => void; onSource: () => void }) {

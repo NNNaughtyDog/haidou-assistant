@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+.wrangler/
+.sites-runtime/
+github-pages/node_modules/
+github-pages/dist/
+.env
+.env.*
+*.log
+
