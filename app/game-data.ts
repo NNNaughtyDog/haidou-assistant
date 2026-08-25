@@ -4449,7 +4449,7 @@ export const getRecommendedItems = (champion: Champion) => {
     .map((itemId) => items.find((item) => item.id === itemId)?.name)
     .filter((name): name is string => Boolean(name));
 };
-export const patchInfo = { productVersion: "v0.3.1", riotPatch: DDRAGON_VERSION, displayPatch: aramggSnapshot.patch, updatedAt: aramggSnapshot.updatedAt, cnUpdatedAt: aramggSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length, itemCount: items.length, itemPoolCount: itemSnapshot.heroPoolCount, itemUpdatedAt: itemSnapshot.date };
+export const patchInfo = { productVersion: "v0.4.0", riotPatch: DDRAGON_VERSION, displayPatch: aramggSnapshot.patch, updatedAt: aramggSnapshot.updatedAt, cnUpdatedAt: aramggSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length, itemCount: items.length, itemPoolCount: itemSnapshot.heroPoolCount, itemUpdatedAt: itemSnapshot.date };
 export const sources = [
   { label: "英雄与装备素材", name: "Riot Data Dragon", scope: `官方 ${DDRAGON_VERSION} 简体中文目录与版本化图片`, url: "https://developer.riotgames.com/docs/lol#data-dragon" },
   { label: "英雄强度（全球）", name: "ARAM Mayhem", scope: "26.16 全球样本；展示胜率与梯度", url: "https://arammayhem.com/zh-cn/tier-list/" },

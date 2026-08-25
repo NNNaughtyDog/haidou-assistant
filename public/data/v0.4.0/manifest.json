@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "productVersion": "0.4.0",
+  "riotPatch": "16.16.1",
+  "displayPatch": "26.16",
+  "lastSuccessfulUpdate": "2026-08-22",
+  "championCatalog": 173,
+  "statistics": {
+    "cn": {
+      "coveredChampions": 172,
+      "source": "ARAMGG / 腾讯国服公开统计",
+      "updatedAt": "2026-08-22"
+    },
+    "global": {
+      "coveredChampions": 171,
+      "source": "ARAM Mayhem",
+      "updatedAt": "2026-08-13"
+    }
+  },
+  "items": {
+    "completedCatalogCount": 122,
+    "heroPoolCount": 172,
+    "source": "Hexdata / Riot Data Dragon",
+    "updatedAt": "2026-08-19"
+  },
+  "roguelite": {
+    "contentLicense": "original-project-content",
+    "heroes": 6,
+    "cards": 24,
+    "enemies": 6,
+    "dailySeedTimeZone": "Asia/Shanghai",
+    "localProgressKey": "haidou-sim-v1"
+  },
+  "policies": {
+    "heroPoolFilter": "observed-current-snapshot-only",
+    "heroItemPoolFilter": "observed-current-snapshot-only",
+    "augmentWinRateDisplayed": false,
+    "itemWinRateDisplayed": false,
+    "recommendationScore": "mechanics-and-synergy-0-to-100",
+    "missingValues": "null",
+    "failureFallback": "last-reliable-snapshot"
+  }
+}

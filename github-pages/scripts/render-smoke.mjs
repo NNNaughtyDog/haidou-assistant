@@ -16,7 +16,7 @@ try {
   const { default: App } = await server.ssrLoadModule(`/@fs/${appPath}`);
   const markup = renderToString(React.createElement(App));
 
-  if (!markup.includes("海斗助手")) {
+  if (!markup.includes("海斗实验室") || !markup.includes("构筑乱斗")) {
     throw new Error("rendered markup is missing the app shell");
   }
 
