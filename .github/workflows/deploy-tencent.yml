@@ -25,17 +25,22 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Promote tested static bundle
-        shell: bash
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: github-pages/package-lock.json
+
+      - name: Build and verify production bundle
+        env:
+          HAIDOU_BASE: /
         run: |
-          cat deploy/artifacts/haidou-current.tar.gz.b64.part-* \
-            | base64 --decode > /tmp/haidou-current.tar.gz
-          expected="$(cat deploy/artifacts/haidou-current.sha256)"
-          printf '%s  %s\n' "$expected" '/tmp/haidou-current.tar.gz' | sha256sum --check -
-          install -d /tmp/haidou-dist
-          tar -xzf /tmp/haidou-current.tar.gz -C /tmp/haidou-dist
-          test -s /tmp/haidou-dist/index.html
-          grep -Rqs '海斗助手' /tmp/haidou-dist/assets
+          npm ci --prefix github-pages --no-audit --no-fund
+          npm --prefix github-pages run build
+          npm --prefix github-pages run test:render
+          test -s github-pages/dist/index.html
+          grep -Rqs '海斗助手' github-pages/dist/assets
 
       - name: Verify production DNS
         shell: bash
@@ -64,7 +69,7 @@ jobs:
       - name: Package and upload release
         shell: bash
         run: |
-          tar -C /tmp/haidou-dist -czf "/tmp/haidou-${GITHUB_SHA}.tar.gz" .
+          tar -C github-pages/dist -czf "/tmp/haidou-${GITHUB_SHA}.tar.gz" .
           scp -i "$HOME/.ssh/haidou_deploy_key" \
             "/tmp/haidou-${GITHUB_SHA}.tar.gz" \
             "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${GITHUB_SHA}.tar.gz"

@@ -71,6 +71,7 @@ jobs:
           HAIDOU_BASE: /
         run: |
           npm --prefix github-pages run build
+          npm --prefix github-pages run test:render
           test -s github-pages/dist/index.html
           grep -Rqs '海斗助手' github-pages/dist/assets
           tar -C github-pages/dist -czf /tmp/haidou-current.tar.gz .

@@ -90,14 +90,27 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const saved = window.localStorage.getItem("haidou-v02");
+    let savedState: {
+      hero?: string;
+      region?: string;
+      strategy?: string;
+      augments?: unknown;
+      items?: unknown;
+      favorites?: unknown;
+    } | null = null;
+    try {
+      const saved = window.localStorage.getItem("haidou-v02");
+      savedState = saved ? JSON.parse(saved) as typeof savedState : null;
+    } catch {
+      window.localStorage.removeItem("haidou-v02");
+    }
     const state = params.has("h") ? {
       hero: params.get("h"),
       region: params.get("r"),
       strategy: params.get("s"),
       augments: (params.get("a") ?? "").split(",").filter(Boolean),
       items: (params.get("i") ?? "").split(",").filter(Boolean),
-    } : saved ? JSON.parse(saved) : null;
+    } : savedState;
     if (!state) return;
     const linkedHero = champions.find((entry) => entry.name === state.hero);
     const targetHero = linkedHero ?? defaultHero;
@@ -108,12 +121,16 @@ export default function Home() {
       if (Array.isArray(state.augments)) setSelectedNames(state.augments.filter((name: string) => targetHero.augmentPool.includes(name)).slice(0, 4));
       setCandidateNames(getRecommendedAugments(targetHero).slice(0, 3));
       if (Array.isArray(state.items)) setEquipped(state.items.filter((name: string) => items.some((entry) => entry.name === name)).slice(0, 6));
-      if (Array.isArray(state.favorites)) setFavorites(state.favorites);
+      if (Array.isArray(state.favorites)) setFavorites(state.favorites.filter((name): name is string => typeof name === "string"));
     });
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("haidou-v02", JSON.stringify({ hero: hero.name, region, strategy, augments: selectedNames, items: equipped, favorites }));
+    try {
+      window.localStorage.setItem("haidou-v02", JSON.stringify({ hero: hero.name, region, strategy, augments: selectedNames, items: equipped, favorites }));
+    } catch {
+      // Private browsing and embedded browsers may disable persistent storage.
+    }
   }, [hero, region, strategy, selectedNames, equipped, favorites]);
 
   const stats = getStats(hero, region);
