@@ -7,7 +7,7 @@ export const itemSnapshot = {
   "assetVersion": "16.16.1",
   "date": "2026-08-19",
   "generatedAt": "2026-08-19T07:52:25.388Z",
-  "itemCount": 122,
+  "itemCount": 123,
   "heroPoolCount": 172,
   "source": "https://hexdata.com.cn/data/items.json"
 } as const;
@@ -1706,6 +1706,18 @@ export const itemCatalogSnapshot = [
       "坦克"
     ],
     "cost": 3000
+  },
+  {
+    "id": "1001",
+    "name": "草鞋",
+    "tags": [
+      "机动"
+    ],
+    "categories": [
+      "鞋子",
+      "辅助"
+    ],
+    "cost": 300
   }
 ] as const;
 
