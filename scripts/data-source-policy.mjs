@@ -7,3 +7,8 @@ export const getDdragonItemUrl = (assetVersion) => {
   return `https://ddragon.leagueoflegends.com/cdn/${assetVersion}/data/zh_CN/item.json`;
 };
 
+export const getDdragonItemById = (items, itemId) => {
+  const source = items?.[String(itemId)];
+  if (!source) throw new Error(`Data Dragon 缺少装备 ${itemId}`);
+  return source;
+};
