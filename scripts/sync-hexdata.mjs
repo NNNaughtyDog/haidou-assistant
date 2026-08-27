@@ -1,5 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { DATA_SYNC_RETRY_ATTEMPTS, getDdragonItemUrl } from "./data-source-policy.mjs";
+import {
+  DATA_SYNC_RETRY_ATTEMPTS,
+  getDdragonItemById,
+  getDdragonItemUrl,
+} from "./data-source-policy.mjs";
 
 const BASE_URL = "https://hexdata.com.cn";
 const HEXDATA_OUTPUT_PATH = new URL("../app/hexdata-snapshot.ts", import.meta.url);
@@ -142,10 +146,10 @@ const augmentCatalogSnapshot = sortedAugments.map((remote, index) => ({
   games: remote.games,
 }));
 
+let localizedItemNameDifferences = 0;
 const itemCatalogSnapshot = remoteItems.map((remote) => {
-  const source = ddragonItems[String(remote.id)];
-  assert(source, `Data Dragon 缺少装备 ${remote.id}/${remote.name}`);
-  assert(source.name === remote.name, `装备名称不一致：${remote.id} Hexdata=${remote.name} Data Dragon=${source.name}`);
+  const source = getDdragonItemById(ddragonItems, remote.id);
+  if (source.name !== remote.name) localizedItemNameDifferences += 1;
   return {
     id: String(remote.id),
     name: remote.name,
@@ -221,3 +225,6 @@ console.log(`写入 ${HEXDATA_OUTPUT_PATH.pathname}`);
 console.log(`写入 ${ITEM_OUTPUT_PATH.pathname}`);
 console.log(`国服英雄 ${Object.keys(cnStatsByKey).length}；英雄强化池 ${Object.keys(heroAugmentStatsByKey).length}；强化 ${augmentCatalogSnapshot.length}（本地人工覆盖 ${localAugmentNames.length}）`);
 console.log(`当前模式成装 ${itemCatalogSnapshot.length}；英雄装备池 ${Object.keys(heroItemPoolByKey).length}；Data Dragon ${meta.assetVersion}`);
+if (localizedItemNameDifferences > 0) {
+  console.log(`按稳定装备 ID 合并了 ${localizedItemNameDifferences} 个中文名称别名`);
+}
