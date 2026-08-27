@@ -1,15 +1,24 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { DATA_SYNC_RETRY_ATTEMPTS, getDdragonItemUrl } from "./data-source-policy.mjs";
 
 const BASE_URL = "https://hexdata.com.cn";
-const DDRAGON_VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json";
 const HEXDATA_OUTPUT_PATH = new URL("../app/hexdata-snapshot.ts", import.meta.url);
 const ITEM_OUTPUT_PATH = new URL("../app/item-snapshot.ts", import.meta.url);
 const GAME_DATA_PATH = new URL("../app/game-data.ts", import.meta.url);
 
-const fetchJsonUrl = async (url) => {
-  const response = await fetch(url, { headers: { "user-agent": "haidou-assistant-data-sync/0.3" } });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return response.json();
+const fetchJsonUrl = async (url, attempts = DATA_SYNC_RETRY_ATTEMPTS) => {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { headers: { "user-agent": "haidou-assistant-data-sync/0.3.2" } });
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** (attempt - 1))));
+    }
+  }
+  throw lastError;
 };
 
 const fetchJson = (path) => fetchJsonUrl(`${BASE_URL}${path}`);
@@ -35,21 +44,18 @@ const gameData = await readFile(GAME_DATA_PATH, "utf8");
 const augmentSection = gameData.slice(gameData.indexOf("const augmentCatalog"), gameData.indexOf("export const items"));
 const localAugmentNames = [...augmentSection.matchAll(/\n    "name": "([^"]+)"/g)].map((match) => match[1]);
 
-const [meta, heroes, remoteAugments, poolIndex, remoteItems, formulaItems, ddragonVersions] = await Promise.all([
-  fetchJson("/data/meta.json"),
+const meta = await fetchJson("/data/meta.json");
+const ddragonItemUrl = getDdragonItemUrl(meta.assetVersion);
+const [heroes, remoteAugments, poolIndex, remoteItems, formulaItems, ddragonPayload] = await Promise.all([
   fetchJson("/data/heroes.json"),
   fetchJson("/data/augments.json"),
   fetchJson("/data/hero-augment-items/index.json"),
   fetchJson("/data/items.json"),
   fetchJson("/data/hero_formula_items.json"),
-  fetchJsonUrl(DDRAGON_VERSIONS_URL),
+  fetchJsonUrl(ddragonItemUrl),
 ]);
-
-assert(ddragonVersions[0] === meta.assetVersion,
-  `Data Dragon 最新版本 ${ddragonVersions[0]} 与 Hexdata 素材版本 ${meta.assetVersion} 不一致，停止覆盖可靠快照`);
-
-const ddragonItemUrl = `https://ddragon.leagueoflegends.com/cdn/${meta.assetVersion}/data/zh_CN/item.json`;
-const ddragonItems = (await fetchJsonUrl(ddragonItemUrl)).data;
+assert(ddragonPayload?.data, `Data Dragon ${meta.assetVersion} 装备数据为空`);
+const ddragonItems = ddragonPayload.data;
 const shards = await mapLimit(poolIndex.heroIds, 12, async (heroId) => fetchJson(`/data/hero-augment-items/${heroId}.json`));
 
 const remoteNameById = new Map(remoteAugments.map((augment) => [String(augment.id), augment.name]));
