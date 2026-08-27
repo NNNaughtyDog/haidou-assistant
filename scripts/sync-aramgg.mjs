@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { DATA_SYNC_RETRY_ATTEMPTS } from "./data-source-policy.mjs";
 
 const BASE_URL = "https://aramgg.com/zh-CN";
 const OUTPUT_PATH = new URL("../app/aramgg-snapshot.ts", import.meta.url);
@@ -9,12 +10,21 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
-const fetchText = async (url) => {
-  const response = await fetch(url, {
-    headers: { "user-agent": "haidou-assistant-data-sync/0.3" },
-  });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return response.text();
+const fetchText = async (url, attempts = DATA_SYNC_RETRY_ATTEMPTS) => {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: { "user-agent": "haidou-assistant-data-sync/0.3.2" },
+      });
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** (attempt - 1))));
+    }
+  }
+  throw lastError;
 };
 
 const mapLimit = async (values, limit, mapper) => {
