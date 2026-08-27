@@ -12,7 +12,7 @@
     "build:pages": "npm --prefix github-pages run build",
     "data:sync:aramgg": "node scripts/sync-aramgg.mjs",
     "data:sync:hexdata": "node scripts/sync-hexdata.mjs",
-    "data:sync": "npm run data:sync:aramgg && npm run data:sync:hexdata",
+    "data:sync": "node scripts/sync-all-data.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "data:changelog": "node scripts/update-data-changelog.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
@@ -47,3 +47,4 @@
   "type": "module",
   "displayName": "\u6d77\u6597\u52a9\u624b"
 }
+
