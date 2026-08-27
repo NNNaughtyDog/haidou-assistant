@@ -21,10 +21,14 @@ concurrency:
   group: game-data-update
   cancel-in-progress: false
 
+env:
+  DEPLOY_HOST: 43.133.254.212
+  DEPLOY_USER: root
+
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Check out main
         uses: actions/checkout@v4
@@ -134,6 +138,7 @@ jobs:
 
       - name: Commit and publish verified update
         if: steps.changes.outputs.changed == 'true'
+        id: publish
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -141,6 +146,64 @@ jobs:
           git add app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts CHANGELOG.md deploy/artifacts
           git commit -m "data: automatic game data refresh"
           git push origin HEAD:main
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify production DNS for data release
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          for attempt in $(seq 1 20); do
+            resolved="$(getent ahostsv4 hex.aicollie.cn | awk '{print $1}' | sort -u || true)"
+            if printf '%s\n' "$resolved" | grep -Fx "$DEPLOY_HOST"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Prepare SSH for data release
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SEOUL_SSH_KEY }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/haidou_deploy_key"
+          chmod 600 "$HOME/.ssh/haidou_deploy_key"
+          ssh-keyscan -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+
+      - name: Upload verified data release
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          release_sha="${{ steps.publish.outputs.release_sha }}"
+          test -n "$release_sha"
+          scp -i "$HOME/.ssh/haidou_deploy_key" \
+            /tmp/haidou-current.tar.gz \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${release_sha}.tar.gz"
+          scp -i "$HOME/.ssh/haidou_deploy_key" \
+            deploy/nginx/haidou-assistant.conf \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-assistant.conf"
+
+      - name: Activate verified data release
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          ssh -i "$HOME/.ssh/haidou_deploy_key" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "RELEASE_SHA='${{ steps.publish.outputs.release_sha }}' bash -s" < deploy/tencent-lighthouse.sh
+
+      - name: Verify production data release
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          html="$(curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
+            https://hex.aicollie.cn/)"
+          printf '%s' "$html" | grep -F '海斗助手' > /dev/null
+          asset_path="$(printf '%s' "$html" | sed -n 's#.*src="\([^"]*\.js\)".*#\1#p' | head -n 1)"
+          test -n "$asset_path"
+          curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+            "https://hex.aicollie.cn${asset_path}" | grep -F '海斗助手' > /dev/null
 
       - name: Close resolved update-failure alert
         if: success()
