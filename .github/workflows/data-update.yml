@@ -179,12 +179,21 @@ jobs:
         run: |
           release_sha="${{ steps.publish.outputs.release_sha }}"
           test -n "$release_sha"
-          scp -i "$HOME/.ssh/haidou_deploy_key" \
-            /tmp/haidou-current.tar.gz \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${release_sha}.tar.gz"
-          scp -i "$HOME/.ssh/haidou_deploy_key" \
-            deploy/nginx/haidou-assistant.conf \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-assistant.conf"
+          for attempt in 1 2 3; do
+            if timeout 120 scp -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+              -i "$HOME/.ssh/haidou_deploy_key" \
+              /tmp/haidou-current.tar.gz \
+              "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-${release_sha}.tar.gz" \
+              && timeout 30 scp -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+                -i "$HOME/.ssh/haidou_deploy_key" \
+                deploy/nginx/haidou-assistant.conf \
+                "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/haidou-assistant.conf"; then
+              exit 0
+            fi
+            echo "上传失败，第 ${attempt}/3 次；稍后自动重试。" >&2
+            sleep "$((attempt * 10))"
+          done
+          exit 1
 
       - name: Activate verified data release
         if: steps.changes.outputs.changed == 'true'
