@@ -13,12 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
-      - name: Inspect public CN datasets
+      - name: Inspect Tencent public data endpoints
         run: |
           node --input-type=module <<'JS'
-          for (const [key,url] of Object.entries({detail:'https://aramgg.com/data/champion-details/1.json',catalog:'https://aramgg.com/data/aram-mayhem-augments.zh_cn.json',items:'https://ddragon.leagueoflegends.com/cdn/16.17.1/data/zh_CN/item.json'})) {
-            const r=await fetch(url,{signal:AbortSignal.timeout(20000)});
-            const value=await r.text();
-            console.log('PUBLIC_SOURCE',key,r.status,Buffer.from(value).toString('base64'));
-          }
+          const url='https://lol.qq.com/lolstrategy/assets/20260902/strategy-BS2LPLRo.js';
+          const r=await fetch(url,{signal:AbortSignal.timeout(20000)});
+          const value=await r.text();
+          console.log('PUBLIC_SOURCE','officialjs',r.status,Buffer.from(value).toString('base64'));
           JS
