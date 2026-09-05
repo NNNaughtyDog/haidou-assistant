@@ -11,7 +11,7 @@
     "build": "bash scripts/build-verified.sh",
     "build:pages": "npm --prefix github-pages run build",
     "data:sync:aramgg": "node scripts/sync-aramgg.mjs",
-    "data:sync:hexdata": "node scripts/sync-hexdata.mjs",
+    "data:sync:cn-pools": "node scripts/sync-cn-pools.mjs",
     "data:sync": "node scripts/sync-all-data.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "data:changelog": "node scripts/update-data-changelog.mjs",

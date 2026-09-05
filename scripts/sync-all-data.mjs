@@ -8,8 +8,8 @@ const sources = [
     outputs: [new URL("../app/aramgg-snapshot.ts", import.meta.url)],
   },
   {
-    name: "Hexdata",
-    script: new URL("./sync-hexdata.mjs", import.meta.url),
+    name: "CN pools / official items",
+    script: new URL("./sync-cn-pools.mjs", import.meta.url),
     outputs: [
       new URL("../app/hexdata-snapshot.ts", import.meta.url),
       new URL("../app/item-snapshot.ts", import.meta.url),
