@@ -7,17 +7,22 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
-      - name: Inspect official CN schemas
+      - name: Inspect official CN requests
         run: |
-          node --input-type=module <<'JS'
+          timeout 80 node --input-type=module <<'JS'
           for (const [key,url] of Object.entries({rankjs:'https://lol.qq.com/lolstrategy/assets/20260902/HextechRankView-BudBkGWB.js',herojs:'https://lol.qq.com/lolstrategy/assets/20260902/HeroDetailView-dX_tkxda.js',qqitems:'https://game.gtimg.cn/images/lol/act/img/js/items/items.js'})) {
-            const r=await fetch(url,{signal:AbortSignal.timeout(20000)});
-            console.log('PUBLIC_SOURCE',key,r.status,Buffer.from(await r.text()).toString('base64'));
+            try {
+              const r=await fetch(url,{signal:AbortSignal.timeout(15000)});
+              const value=await r.text();
+              console.log('STATUS',key,r.status,value.length);
+              if(key==='qqitems')console.log(value.slice(0,2500));
+              else console.log('PUBLIC_SOURCE',key,r.status,Buffer.from(value).toString('base64'));
+            } catch(error){console.log('ERROR',key,error.message)}
           }
           JS
