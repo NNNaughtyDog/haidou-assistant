@@ -1,0 +1,24 @@
+name: Validate CN sources
+on:
+  push:
+    branches: [fix/cn-source-recovery]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+      - name: Inspect public CN source structure
+        run: |
+          node --input-type=module <<'JS'
+          for (const [key,url] of Object.entries({hero:'https://aramgg.com/zh-CN/champion-stats/1',augments:'https://aramgg.com/zh-CN/augments',official:'https://101.qq.com/'})) {
+            const r=await fetch(url,{signal:AbortSignal.timeout(20000)});
+            const html=await r.text();
+            console.log('PUBLIC_SOURCE',key,r.status,Buffer.from(html).toString('base64'));
+          }
+          JS
