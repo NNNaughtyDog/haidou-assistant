@@ -9,6 +9,9 @@ on:
     paths:
       - "scripts/sync-*.mjs"
       - "scripts/data-source-*.mjs"
+      - "scripts/validate-*.mjs"
+      - "scripts/verify-production.mjs"
+      - "tests/*.test.mjs"
       - "package.json"
       - ".github/workflows/data-update.yml"
   workflow_dispatch:
@@ -18,7 +21,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: game-data-update
+  group: tencent-lighthouse-production
   cancel-in-progress: false
 
 env:
@@ -103,7 +106,7 @@ jobs:
         run: |
           if git diff --quiet -- app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "数据源没有变化，无需发布。" >> "$GITHUB_STEP_SUMMARY"
+            echo "数据源没有变化；仍核对并恢复生产部署。" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -113,15 +116,12 @@ jobs:
         run: npm run data:changelog
 
       - name: Install production dependencies
-        if: steps.changes.outputs.changed == 'true'
         run: npm ci --prefix github-pages --no-audit --no-fund
 
       - name: Run data regression tests
-        if: steps.changes.outputs.changed == 'true'
         run: node --test tests/*.test.mjs
 
       - name: Build Tencent production bundle
-        if: steps.changes.outputs.changed == 'true'
         env:
           HAIDOU_BASE: /
         run: |
@@ -129,7 +129,7 @@ jobs:
           npm --prefix github-pages run test:render
           test -s github-pages/dist/index.html
           grep -Rqs '海斗助手' github-pages/dist/assets
-          tar -C github-pages/dist -czf /tmp/haidou-current.tar.gz .
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -C github-pages/dist -cf - . | gzip -n > /tmp/haidou-current.tar.gz
           rm -f deploy/artifacts/haidou-current.tar.gz.b64.part-*
           base64 -w 0 /tmp/haidou-current.tar.gz \
             | split -b 700000 -a 2 - deploy/artifacts/haidou-current.tar.gz.b64.part-
@@ -137,19 +137,19 @@ jobs:
             > deploy/artifacts/haidou-current.sha256
 
       - name: Commit and publish verified update
-        if: steps.changes.outputs.changed == 'true'
         id: publish
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts CHANGELOG.md deploy/artifacts
-          git commit -m "data: automatic game data refresh"
-          git push origin HEAD:main
+          if ! git diff --cached --quiet; then
+            git commit -m "data: automatic game data refresh"
+            git push origin HEAD:main
+          fi
           echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Verify production DNS for data release
-        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
           for attempt in $(seq 1 20); do
@@ -162,7 +162,6 @@ jobs:
           exit 1
 
       - name: Prepare SSH for data release
-        if: steps.changes.outputs.changed == 'true'
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SEOUL_SSH_KEY }}
@@ -174,7 +173,6 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
 
       - name: Upload verified data release
-        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
           release_sha="${{ steps.publish.outputs.release_sha }}"
@@ -196,23 +194,15 @@ jobs:
           exit 1
 
       - name: Activate verified data release
-        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
           ssh -i "$HOME/.ssh/haidou_deploy_key" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "RELEASE_SHA='${{ steps.publish.outputs.release_sha }}' bash -s" < deploy/tencent-lighthouse.sh
 
       - name: Verify production data release
-        if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
-          html="$(curl --fail --location --retry 8 --retry-delay 3 --max-time 20 \
-            https://hex.aicollie.cn/)"
-          printf '%s' "$html" | grep -F '海斗助手' > /dev/null
-          asset_path="$(printf '%s' "$html" | sed -n 's#.*src="\([^"]*\.js\)".*#\1#p' | head -n 1)"
-          test -n "$asset_path"
-          curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
-            "https://hex.aicollie.cn${asset_path}" | grep -F '海斗助手' > /dev/null
+          node scripts/verify-production.mjs github-pages/dist https://hex.aicollie.cn
 
       - name: Close resolved update-failure alert
         if: success()

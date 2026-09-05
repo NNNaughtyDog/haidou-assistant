@@ -50,7 +50,11 @@ const validate = (snapshot) => {
   const summary = summarize(snapshot);
   assert(/^\d+\.\d+(?:\.\d+)?$/.test(summary.patch), `补丁号异常：${summary.patch}`);
   assert(/^\d+\.\d+$/.test(summary.cnPatch), `国服补丁号异常：${summary.cnPatch}`);
-  assert(summary.patch.split(".").at(-1) === summary.cnPatch.split(".").at(-1), `ARAMGG ${summary.cnPatch} 与 Hexdata ${summary.patch} 小版本不一致`);
+  // Independent sources may publish at different times. Keep each source's
+  // integrity gates, but do not let a delayed pool source block fresh rankings.
+  if (summary.patch.split(".")[1] !== summary.cnPatch.split(".")[1]) {
+    console.warn(`::warning::来源版本不同：ARAMGG ${summary.cnPatch} / ${summary.cnDate}；Hexdata ${summary.patch} / ${summary.date}。强化与装备池保留其原始版本。`);
+  }
   assert(snapshot.itemSnapshot.patch === summary.patch, "英雄与装备快照补丁不一致");
   assert(snapshot.itemSnapshot.assetVersion, "缺少装备素材版本");
   assert(summary.heroes >= MIN_HEROES, `Hexdata 英雄仅 ${summary.heroes}`);
