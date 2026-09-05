@@ -53,11 +53,11 @@ const validate = (snapshot) => {
   // Independent sources may publish at different times. Keep each source's
   // integrity gates, but do not let a delayed pool source block fresh rankings.
   if (summary.patch.split(".")[1] !== summary.cnPatch.split(".")[1]) {
-    console.warn(`::warning::来源版本不同：ARAMGG ${summary.cnPatch} / ${summary.cnDate}；Hexdata ${summary.patch} / ${summary.date}。强化与装备池保留其原始版本。`);
+    console.warn(`::warning::来源版本不同：ARAMGG ${summary.cnPatch} / ${summary.cnDate}；国服候选 ${summary.patch} / ${summary.date}。强化与装备池保留其原始版本。`);
   }
   assert(snapshot.itemSnapshot.patch === summary.patch, "英雄与装备快照补丁不一致");
   assert(snapshot.itemSnapshot.assetVersion, "缺少装备素材版本");
-  assert(summary.heroes >= MIN_HEROES, `Hexdata 英雄仅 ${summary.heroes}`);
+  assert(summary.heroes >= MIN_HEROES, `国服候选 英雄仅 ${summary.heroes}`);
   assert(summary.cnHeroes >= MIN_HEROES, `国服英雄仅 ${summary.cnHeroes}`);
   assert(summary.cnAugmentTiers >= MIN_AUGMENTS, `国服强化梯度仅 ${summary.cnAugmentTiers}`);
   assert(summary.heroAugmentPools >= MIN_HEROES, `英雄强化池仅 ${summary.heroAugmentPools}`);
@@ -125,7 +125,7 @@ if (baselineItemsIndex >= 0) {
   assert(summary.heroItemPools >= Object.keys(baselineItems.heroItemPoolByKey).length - 2, `英雄装备池覆盖从 ${Object.keys(baselineItems.heroItemPoolByKey).length} 降至 ${summary.heroItemPools}`);
 }
 
-const report = `数据校验通过：ARAMGG ${summary.cnPatch} / ${summary.cnDate}；Hexdata ${summary.patch} / ${summary.date}\n国服英雄 ${summary.cnHeroes}；强化梯度 ${summary.cnAugmentTiers}；当前模式成装 ${summary.items}；英雄装备池 ${summary.heroItemPools}`;
+const report = `数据校验通过：ARAMGG ${summary.cnPatch} / ${summary.cnDate}；国服候选 ${summary.patch} / ${summary.date}\n国服英雄 ${summary.cnHeroes}；强化梯度 ${summary.cnAugmentTiers}；当前模式成装 ${summary.items}；英雄装备池 ${summary.heroItemPools}`;
 console.log(report);
 if (process.env.GITHUB_STEP_SUMMARY) {
   const { appendFile } = await import("node:fs/promises");

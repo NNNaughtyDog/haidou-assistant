@@ -7,10 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "scripts/sync-*.mjs"
-      - "scripts/data-source-*.mjs"
-      - "scripts/validate-*.mjs"
-      - "scripts/verify-production.mjs"
+      - "scripts/*.mjs"
       - "tests/*.test.mjs"
       - "package.json"
       - ".github/workflows/data-update.yml"
