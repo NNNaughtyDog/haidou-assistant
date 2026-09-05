@@ -2,27 +2,46 @@ name: Validate CN sources
 on:
   push:
     branches: [fix/cn-source-recovery]
+    paths: ["scripts/**", "tests/**", "app/game-data.ts", "app/page.tsx", ".github/workflows/cn-source-test.yml"]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  inspect:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
-      - name: Inspect official CN requests
+      - name: Synchronize real CN sources
         run: |
-          timeout 80 node --input-type=module <<'JS'
-          for (const [key,url] of Object.entries({rankjs:'https://lol.qq.com/lolstrategy/assets/20260902/HextechRankView-BudBkGWB.js',herojs:'https://lol.qq.com/lolstrategy/assets/20260902/HeroDetailView-dX_tkxda.js',qqitems:'https://game.gtimg.cn/images/lol/act/img/js/items/items.js'})) {
-            try {
-              const r=await fetch(url,{signal:AbortSignal.timeout(15000)});
-              const value=await r.text();
-              console.log('STATUS',key,r.status,value.length);
-              if(key==='qqitems')console.log(value.slice(0,2500));
-              else console.log('PUBLIC_SOURCE',key,r.status,Buffer.from(value).toString('base64'));
-            } catch(error){console.log('ERROR',key,error.message)}
-          }
+          npm run data:sync
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {readConst} from './scripts/public-data-fetch.mjs';
+          const cn=readConst(readFileSync('app/aramgg-snapshot.ts','utf8'),'aramggSnapshot');
+          const pools=readConst(readFileSync('app/hexdata-snapshot.ts','utf8'),'hexdataSnapshot');
+          if(pools.region!=='CN'||pools.patch!==cn.patch||pools.date!==cn.date)throw new Error('CN candidate refresh did not succeed');
           JS
+      - name: Validate data and regressions
+        run: |
+          npm run data:validate
+          node --test tests/*.test.mjs
+      - name: Build and render production app
+        env:
+          HAIDOU_BASE: /
+        run: |
+          npm ci --prefix github-pages --no-audit --no-fund
+          npm --prefix github-pages run build
+          npm --prefix github-pages run test:render
+      - name: Save verified CN snapshots
+        run: |
+          npm run data:changelog
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/aramgg-snapshot.ts app/hexdata-snapshot.ts app/item-snapshot.ts CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "data: verified CN candidates and current official items"
+            git push origin HEAD:fix/cn-source-recovery
+          fi

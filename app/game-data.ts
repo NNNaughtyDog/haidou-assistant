@@ -4452,9 +4452,8 @@ export const getRecommendedItems = (champion: Champion) => {
 export const patchInfo = { productVersion: "v0.3.1", riotPatch: DDRAGON_VERSION, displayPatch: aramggSnapshot.patch, updatedAt: aramggSnapshot.updatedAt, cnUpdatedAt: aramggSnapshot.date, globalUpdatedAt: "2026-08-13", officialChampionCount: champions.length, globalStatCount: champions.filter((champion) => champion.global).length, cnStatCount: champions.filter((champion) => champion.cn).length, augmentCount: augments.length, itemCount: items.length, itemPoolCount: itemSnapshot.heroPoolCount, itemUpdatedAt: itemSnapshot.date, poolPatch: hexdataSnapshot.patch, poolUpdatedAt: hexdataSnapshot.date, sourcesDelayed: aramggSnapshot.patch.split(".")[1] !== hexdataSnapshot.patch.split(".")[1] };
 export const sources = [
   { label: "英雄与装备素材", name: "Riot Data Dragon", scope: `官方 ${DDRAGON_VERSION} 简体中文目录与版本化图片`, url: "https://developer.riotgames.com/docs/lol#data-dragon" },
-  { label: "英雄强度（全球）", name: "ARAM Mayhem", scope: "26.16 全球样本；展示胜率与梯度", url: "https://arammayhem.com/zh-cn/tier-list/" },
   { label: "英雄强度（国服）", name: "ARAMGG", scope: `${aramggSnapshot.patch} 腾讯国服公开统计；${patchInfo.cnStatCount} 位英雄，展示排名、胜率与选取率，数据日期 ${aramggSnapshot.date}`, url: aramggSnapshot.source },
-  { label: "英雄强化池", name: "Hexdata", scope: `${hexdataSnapshot.patch} 固定池观察数据；只用于确认英雄可出现的强化，不展示强化胜率`, url: "https://hexdata.com.cn/methodology" },
-  { label: "成装目录与英雄装备池", name: "Hexdata / Riot Data Dragon", scope: `${itemSnapshot.patch} 当前模式 ${itemSnapshot.itemCount} 件可用成装；${itemSnapshot.heroPoolCount} 位英雄专属候选池，名称与图标来自 Data Dragon ${itemSnapshot.assetVersion}`, url: itemSnapshot.source },
+  { label: "英雄强化池", name: "ARAMGG / 腾讯国服", scope: `${hexdataSnapshot.patch} 国服公开候选；不含外服附加统计，公开候选不等于完整可选范围`, url: "https://aramgg.com/zh-CN" },
+  { label: "成装目录与英雄装备池", name: "Riot Data Dragon / 机制推荐", scope: `官方 ${itemSnapshot.assetVersion} 嚎哭深渊成装目录 ${itemSnapshot.itemCount} 件；${itemSnapshot.heroPoolCount} 位英雄按机制生成候选，不是对局出装统计`, url: itemSnapshot.source },
   { label: "强化梯度与图标", name: "ARAMGG / CommunityDragon", scope: `${aramggSnapshot.patch} 公开机制梯度；当前目录 ${patchInfo.augmentCount} 个，图标来自当前客户端资源`, url: "https://aramgg.com/zh-CN/augments" },
 ] as const;

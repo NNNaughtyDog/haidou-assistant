@@ -56,7 +56,7 @@ function ItemImage({ item }: { item: Item }) {
 function RegionSwitch({ value, onChange }: { value: Region; onChange: (region: Region) => void }) {
   return <div className="region-switch" aria-label="统计地区">
     <button className={value === "cn" ? "active" : ""} onClick={() => onChange("cn")}>国服</button>
-    <button className={value === "global" ? "active" : ""} onClick={() => onChange("global")}>全球</button>
+
   </div>;
 }
 
@@ -116,7 +116,7 @@ export default function Home() {
     const targetHero = linkedHero ?? defaultHero;
     window.queueMicrotask(() => {
       if (linkedHero) setHero(linkedHero);
-      if (state.region === "cn" || state.region === "global") setRegion(state.region);
+      setRegion("cn");
       if (["稳健", "高上限", "娱乐"].includes(state.strategy)) setStrategy(state.strategy);
       if (Array.isArray(state.augments)) setSelectedNames(state.augments.filter((name: string) => targetHero.augmentPool.includes(name)).slice(0, 4));
       setCandidateNames(getRecommendedAugments(targetHero).slice(0, 3));
@@ -296,13 +296,13 @@ function GameTab(props: {
           <button onClick={onShare} aria-label="分享本局">↗</button>
         </div>
       </div>
-      <div className="stats-head"><RegionSwitch value={region} onChange={setRegion} /><button className="source-link" onClick={onSource}>{region === "cn" ? "Hexdata" : "ARAM Mayhem"} · 查看来源</button></div>
+      <div className="stats-head"><RegionSwitch value={region} onChange={setRegion} /><button className="source-link" onClick={onSource}>ARAMGG · 国服来源</button></div>
       {stats ? <div className="metric-grid">
         <div><span>强度</span><strong className="tier-value">{stats.tier}</strong></div>
         <div><span>胜率</span><strong>{stats.winRate.toFixed(2)}%</strong></div>
         <div><span>选取率</span><strong>{stats.pickRate === null ? "未公开" : `${stats.pickRate.toFixed(2)}%`}</strong></div>
         <div><span>排名</span><strong>{stats.rank ? `#${stats.rank}` : "未公开"}</strong></div>
-      </div> : <div className="no-data"><strong>该地区暂无可靠统计</strong><span>英雄素材与机制推荐仍可使用。</span>{region === "cn" && hero.global && <button onClick={() => setRegion("global")}>查看全球样本</button>}</div>}
+      </div> : <div className="no-data"><strong>该地区暂无可靠统计</strong><span>英雄素材与机制推荐仍可使用。</span></div>}
       {stats?.games && <p className="sample-line">国服冻结样本 {formatGames(stats.games)} 场 · 数据日期 {patchInfo.cnUpdatedAt}</p>}
     </section>
 
@@ -338,15 +338,15 @@ function GameTab(props: {
         <span className="match-score"><strong>{augment.score}</strong><small>匹配分</small></span>
       </button>)}
     </div>
-    <p className="model-note">只在该英雄当前版本已观察到的固定池内推荐。0–100 匹配分综合英雄机制、已有强化、公开梯度与玩法偏好，不是胜率或系统发牌概率。</p>
+    <p className="model-note">只在该英雄当前版本国服公开候选中推荐；公开样本未覆盖的强化不代表游戏内无法出现。0–100 匹配分综合英雄机制、已有强化、公开梯度与玩法偏好，不是胜率或系统发牌概率。</p>
 
-    <SectionHeading index="04" title="联动出装" meta={`专属池 ${itemScores.length} 件`} action={<button className="text-action" onClick={() => onPick("item")}>全量装备库</button>} />
+    <SectionHeading index="04" title="联动出装" meta={`专属池 ${itemScores.length} 件`} action={<button className="text-action" onClick={() => onPick("item")}>官方装备目录</button>} />
     <section className="build-card">
       {itemScores.length ? <>
         <div className="build-icons">{itemScores.slice(0, 6).map((item, index) => <button key={item.name} className={equipped.includes(item.name) ? "equipped" : ""} onClick={() => onAddItem(item.name)}><ItemImage item={item} /><small>{index + 1}</small></button>)}</div>
-        <strong>{selectedNames.length ? "已在英雄专属池内按强化联动排序" : "当前英雄的推荐核心路线"}</strong>
+        <strong>{selectedNames.length ? "已在英雄专属池内按强化联动排序" : "当前英雄的机制参考路线"}</strong>
         <p>{itemScores.slice(0, 3).map((item) => item.name).join(" → ")}。推荐只从该英雄当前版本的专属候选池产生，最后三件再按敌方阵容补生存、穿透或重伤。</p>
-      </> : <div className="item-pool-empty"><strong>当前版本暂无可靠英雄装备样本</strong><p>仍可打开全量装备库手动记录，但不会生成通用路线冒充专属推荐。</p></div>}
+      </> : <div className="item-pool-empty"><strong>当前版本暂无可靠英雄装备样本</strong><p>仍可打开官方装备目录手动记录，但不会生成通用路线冒充专属推荐。</p></div>}
       {equipped.length > 0 && <div className="owned-items"><span>已出装备</span>{equipped.map((name) => <button key={name} onClick={() => setEquipped(equipped.filter((entry) => entry !== name))}>{name} ×</button>)}</div>}
     </section>
 
@@ -364,7 +364,7 @@ function Leaderboard({ region, setRegion, onChoose, onSource }: { region: Region
   const list = champions.filter((champion) => getStats(champion, region)).sort((a, b) => (getStats(a, region)?.rank ?? 999) - (getStats(b, region)?.rank ?? 999));
   const filtered = list.filter((entry) => `${entry.name}${entry.title}`.includes(query));
   return <section className="page-section">
-    <div className="page-heading"><span>{patchInfo.displayPatch} · 当前版本</span><h1>英雄强度榜</h1><p>国服优先，全球样本单独展示。</p></div>
+    <div className="page-heading"><span>{patchInfo.displayPatch} · 当前版本</span><h1>英雄强度榜</h1><p>腾讯国服公开统计，按当前版本更新。</p></div>
     <div className="board-tools"><RegionSwitch value={region} onChange={setRegion} /><button className="source-link" onClick={onSource}>来源与样本</button></div>
     <label className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索英雄或称号" /></label>
     <div className="leader-list">{filtered.map((champion) => { const stats = getStats(champion, region)!; return <button key={champion.key} onClick={() => onChoose(champion)}>
@@ -382,7 +382,7 @@ function AugmentBoard({ onChoose, onSource }: { onChoose: (name: string) => void
   const [query, setQuery] = useState("");
   const list = augments.filter((entry) => (rarity === "全部" || entry.rarity === rarity) && entry.name.includes(query));
   return <section className="page-section">
-    <div className="page-heading"><span>当前版本 · {patchInfo.augmentCount} 个已接入</span><h1>强化图鉴</h1><p>使用 16.16 客户端提取图标；版本外或无法核验的条目不展示。</p></div>
+    <div className="page-heading"><span>当前版本 · {patchInfo.augmentCount} 个已接入</span><h1>强化图鉴</h1><p>使用当前国服公开目录与客户端图标；版本外或无法核验的条目不展示。</p></div>
     <button className="inline-source" onClick={onSource}>查看强化来源与口径</button>
     <div className="filter-row">{["全部", "白银", "黄金", "棱彩"].map((entry) => <button key={entry} className={rarity === entry ? "active" : ""} onClick={() => setRarity(entry)}>{entry}</button>)}</div>
     <label className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索强化名称" /></label>
@@ -398,7 +398,7 @@ function Favorites({ names, onChoose, onSource }: { names: string[]; onChoose: (
   const favorites = names.map((name) => champions.find((entry) => entry.name === name)).filter(Boolean) as Champion[];
   return <section className="page-section">
     <div className="page-heading"><span>保存在当前设备</span><h1>我的收藏</h1><p>无需登录，换设备不会自动同步。</p></div>
-    {favorites.length ? <div className="favorite-grid">{favorites.map((champion) => <button key={champion.key} onClick={() => onChoose(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.cn?.tier ?? champion.global?.tier ?? "暂无统计"} · {champion.title}</small></button>)}</div> : <div className="empty-state">还没有收藏英雄</div>}
+    {favorites.length ? <div className="favorite-grid">{favorites.map((champion) => <button key={champion.key} onClick={() => onChoose(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.cn?.tier ?? "暂无统计"} · {champion.title}</small></button>)}</div> : <div className="empty-state">还没有收藏英雄</div>}
     <section className="transparency-card"><span>数据透明</span><h2>缺数据时，宁可留空</h2><p>排名与胜率只来自公开统计页面；更新失败时保留上一份可靠快照，不用模型补造。</p><button onClick={onSource}>查看完整数据说明</button></section>
   </section>;
 }
@@ -421,10 +421,10 @@ function PickerSheet({ type, hero, query, setQuery, candidates, setCandidates, o
   const toggleCandidate = (name: string) => setCandidates(candidates.includes(name) ? candidates.filter((entry) => entry !== name) : [...candidates, name].slice(0, 3));
   return <div className="sheet-backdrop" onClick={onClose}><section className="bottom-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <div className="sheet-handle" />
-    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择 · ${hero.name}池内 ${pool.length} 个` : type === "item" ? `当前模式全量 ${items.length} 件 · ${hero.name}专属池 ${heroItems.length} 件` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
+    <div className="sheet-title"><div><small>{candidateMode ? `${candidates.length}/3 已选择 · ${hero.name}池内 ${pool.length} 个` : type === "item" ? `官方目录 ${items.length} 件 · ${hero.name}专属池 ${heroItems.length} 件` : "海斗助手"}</small><h2>{type === "hero" ? "选择英雄" : type === "item" ? "选择装备" : candidateMode ? "录入本轮候选" : "添加已选强化"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
     <label className="search-box sheet-search"><span>⌕</span><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入名称搜索" /></label>
     {type === "item" && <div className="item-filter-row">{itemCategories.map((category) => <button key={category} className={itemCategory === category ? "active" : ""} onClick={() => setItemCategory(category)}>{category}</button>)}</div>}
-    {type === "hero" && <div className="hero-picker-grid">{heroList.map((champion) => <button key={champion.key} onClick={() => onHero(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.global?.tier ?? "—"}</small></button>)}</div>}
+    {type === "hero" && <div className="hero-picker-grid">{heroList.map((champion) => <button key={champion.key} onClick={() => onHero(champion)}><ChampionPortrait champion={champion} size="large" /><strong>{champion.name}</strong><small>{champion.cn?.tier ?? "—"}</small></button>)}</div>}
     {(type === "augment" || candidateMode) && <div className="sheet-list">{augmentList.map((augment) => <button key={augment.name} className={candidates.includes(augment.name) && candidateMode ? "selected" : ""} onClick={() => candidateMode ? toggleCandidate(augment.name) : onAugment(augment.name)}><AugmentIcon augment={augment} size="small" /><span><strong>{augment.name}</strong><small>{augment.rarity} · {augment.tags.join(" / ")}</small></span><em>{candidates.includes(augment.name) && candidateMode ? "✓" : augment.tier}</em></button>)}</div>}
     {type === "item" && <div className="sheet-list">{itemList.map((item) => <button key={item.id} className={heroItemIds.has(item.id) ? "hero-item" : ""} onClick={() => onItem(item.name)}><ItemImage item={item} /><span><strong>{item.name}</strong><small>{item.tags.join(" / ")} · {item.cost.toLocaleString("zh-CN")} 金币</small></span>{heroItemIds.has(item.id) && <em>英雄候选</em>}</button>)}</div>}
     {candidateMode && <button className="sheet-primary" disabled={candidates.length !== 3} onClick={onClose}>完成并比较</button>}
@@ -435,8 +435,8 @@ function SourceSheet({ onClose }: { onClose: () => void }) {
   return <div className="sheet-backdrop" onClick={onClose}><section className="bottom-sheet source-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <div className="sheet-handle" /><div className="sheet-title"><div><small>{patchInfo.productVersion}</small><h2>数据与素材说明</h2></div><button onClick={onClose} aria-label="关闭">×</button></div>
     {patchInfo.sourcesDelayed && <p className="data-footnote">部分来源更新延迟：国服榜单为 {patchInfo.displayPatch}（{patchInfo.cnUpdatedAt}）；强化与装备候选池仍为 {patchInfo.poolPatch}（{patchInfo.poolUpdatedAt}），仅供旧版本参考。</p>}
-    <div className="source-summary"><div><span>游戏补丁</span><strong>{patchInfo.riotPatch}</strong></div><div><span>最后成功更新</span><strong>{patchInfo.updatedAt}</strong></div><div><span>英雄目录</span><strong>{patchInfo.officialChampionCount} 位</strong></div><div><span>统计覆盖</span><strong>国服 {patchInfo.cnStatCount} / 全球 {patchInfo.globalStatCount}</strong></div><div><span>当前模式成装</span><strong>{patchInfo.itemCount} 件</strong></div><div><span>英雄装备池</span><strong>{patchInfo.itemPoolCount} 位</strong></div></div>
+    <div className="source-summary"><div><span>游戏补丁</span><strong>{patchInfo.riotPatch}</strong></div><div><span>最后成功更新</span><strong>{patchInfo.updatedAt}</strong></div><div><span>英雄目录</span><strong>{patchInfo.officialChampionCount} 位</strong></div><div><span>统计覆盖</span><strong>国服 {patchInfo.cnStatCount}</strong></div><div><span>官方成装目录</span><strong>{patchInfo.itemCount} 件</strong></div><div><span>英雄装备池</span><strong>{patchInfo.itemPoolCount} 位</strong></div></div>
     <div className="source-list">{sources.map((source) => <a key={source.label} href={source.url} target="_blank" rel="noreferrer"><span>{source.label}</span><strong>{source.name}</strong><p>{source.scope}</p><em>访问来源 ↗</em></a>)}</div>
-    <p className="source-policy">国服英雄排名、胜率和选取率来自 ARAMGG 汇总的腾讯国服公开统计。强化与装备推荐均执行英雄专属候选池硬过滤；全量装备库只收录当前模式可用成装。遵守 Riot 政策，不展示强化或装备胜率，匹配分也不等于系统发牌概率。图标优先使用当前版本客户端提取素材，无法核验的条目直接移除。</p>
+    <p className="source-policy">国服英雄排名、胜率和选取率来自 ARAMGG 汇总的腾讯国服公开统计。强化候选来自公开国服数据；装备目录来自官方客户端嚎哭深渊资料，出装按英雄机制与已选强化计算，不采用外服出装统计。公开候选不等于游戏内完整可选范围。遵守 Riot 政策，不展示强化或装备胜率，匹配分也不等于系统发牌概率。图标优先使用当前版本客户端提取素材，无法核验的条目直接移除。</p>
   </section></div>;
 }

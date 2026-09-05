@@ -17,7 +17,7 @@ const aramgg = readConst(aramggSource, "aramggSnapshot");
 const meta = readConst(hexSource, "hexdataSnapshot");
 const items = readConst(itemSource, "itemCatalogSnapshot");
 const itemPools = readConst(itemSource, "heroItemPoolByKey");
-const bullet = `- ${aramgg.date}：同步 ARAMGG ${aramgg.patch} 国服英雄榜 ${aramgg.heroCount} 位、强化梯度 ${aramgg.augmentTierCount} 个；Hexdata ${meta.patch} 当前模式成装 ${items.length} 件、英雄装备池 ${Object.keys(itemPools).length} 位。`;
+const bullet = `- ${aramgg.date}：同步 ARAMGG ${aramgg.patch} 国服英雄榜 ${aramgg.heroCount} 位、强化梯度 ${aramgg.augmentTierCount} 个；国服候选 ${meta.patch}；官方装备目录 ${items.length} 件、英雄机制出装 ${Object.keys(itemPools).length} 位。`;
 const changelogPath = new URL("../CHANGELOG.md", import.meta.url);
 let changelog = await readFile(changelogPath, "utf8");
 if (!changelog.includes(bullet)) {

@@ -15,7 +15,8 @@ const fetchText = async (url, attempts = DATA_SYNC_RETRY_ATTEMPTS) => {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
-        headers: { "user-agent": "haidou-assistant-data-sync/0.3.2" },
+        headers: { "user-agent": "haidou-assistant-data-sync/0.4.0" },
+        signal: AbortSignal.timeout(20000),
       });
       if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
       return await response.text();
