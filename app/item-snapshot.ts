@@ -1,10 +1,10 @@
 // 自动生成：国服公开候选 / 官方客户端目录。不保存外服统计。
 export const itemSnapshot = {
-  "buildId": "cn-26.17-2026-09-03",
+  "buildId": "cn-26.17-2026-09-06",
   "patch": "26.17",
   "assetVersion": "16.17.1",
-  "date": "2026-09-03",
-  "generatedAt": "2026-09-03",
+  "date": "2026-09-06",
+  "generatedAt": "2026-09-06",
   "itemCount": 155,
   "heroPoolCount": 172,
   "source": "https://ddragon.leagueoflegends.com/cdn/16.17.1/data/zh_CN/item.json",
