@@ -1,13 +1,13 @@
 // 自动生成：国服公开候选 / 官方客户端目录。不保存外服统计。
 export const itemSnapshot = {
-  "buildId": "cn-26.17-2026-09-06",
-  "patch": "26.17",
-  "assetVersion": "16.17.1",
-  "date": "2026-09-06",
-  "generatedAt": "2026-09-06",
+  "buildId": "cn-26.18-2026-09-12",
+  "patch": "26.18",
+  "assetVersion": "16.18.1",
+  "date": "2026-09-12",
+  "generatedAt": "2026-09-12",
   "itemCount": 155,
-  "heroPoolCount": 172,
-  "source": "https://ddragon.leagueoflegends.com/cdn/16.17.1/data/zh_CN/item.json",
+  "heroPoolCount": 173,
+  "source": "https://ddragon.leagueoflegends.com/cdn/16.18.1/data/zh_CN/item.json",
   "recommendationSource": "英雄机制规则",
   "scope": "官方嚎哭深渊客户端成装目录；出装为机制建议"
 } as const;
@@ -2849,6 +2849,36 @@ export const heroItemPoolByKey = {
     "2523",
     "2524",
     "3003"
+  ],
+  "22": [
+    "3153",
+    "2517",
+    "3032",
+    "3072",
+    "3073",
+    "3074",
+    "3078",
+    "3087",
+    "3095",
+    "3124",
+    "3139",
+    "3146",
+    "3156",
+    "3302",
+    "3748",
+    "6631",
+    "6672",
+    "226668",
+    "773050",
+    "773109",
+    "773154",
+    "773172",
+    "773209",
+    "994403",
+    "2501",
+    "2504",
+    "2510",
+    "2512"
   ],
   "23": [
     "2065",
@@ -7550,6 +7580,14 @@ export const heroCoreItemsByKey = {
     "2510",
     "3032",
     "3073"
+  ],
+  "22": [
+    "3153",
+    "2517",
+    "3032",
+    "3072",
+    "3073",
+    "3074"
   ],
   "23": [
     "2065",
