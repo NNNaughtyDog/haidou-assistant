@@ -1,13 +1,13 @@
 // 自动生成：国服公开候选 / 官方客户端目录。不保存外服统计。
 export const itemSnapshot = {
-  "buildId": "cn-26.19-2026-09-26",
-  "patch": "26.19",
-  "assetVersion": "16.19.1",
-  "date": "2026-09-26",
-  "generatedAt": "2026-09-26",
+  "buildId": "cn-26.20-2026-10-12",
+  "patch": "26.20",
+  "assetVersion": "16.20.1",
+  "date": "2026-10-12",
+  "generatedAt": "2026-10-12",
   "itemCount": 155,
   "heroPoolCount": 173,
-  "source": "https://ddragon.leagueoflegends.com/cdn/16.19.1/data/zh_CN/item.json",
+  "source": "https://ddragon.leagueoflegends.com/cdn/16.20.1/data/zh_CN/item.json",
   "recommendationSource": "英雄机制规则",
   "scope": "官方嚎哭深渊客户端成装目录；出装为机制建议"
 } as const;
